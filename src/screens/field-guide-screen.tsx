@@ -3,6 +3,7 @@
 import { AppBar } from "@/components/app-bar";
 import { useRouter } from "@/components/screen-router";
 import { BigButton } from "@/components/big-button";
+import { RealHvacPhotoReference } from "@/components/real-hvac-photo-reference";
 import { ChevronRight, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +20,7 @@ export function FieldGuideScreen() {
   return (
     <div className="min-h-dvh pb-24">
       <AppBar title="Field Guide" subtitle="Visual references" />
-      <div className="space-y-3 p-4">
+      <div className="space-y-4 p-4">
         {GUIDE_ITEMS.map((item) => (
           <BigButton
             key={item.id}
@@ -30,6 +31,10 @@ export function FieldGuideScreen() {
           />
         ))}
 
+        <div className="mt-6 border-t-2 border-border pt-4">
+          <RealHvacPhotoReference />
+        </div>
+
         {/* MY EQUIPMENT PHOTOS — separate section */}
         <div className="mt-6 border-t-2 border-border pt-4">
           <h2 className="mb-2 text-base font-extrabold uppercase tracking-wide text-amber-400">
@@ -38,7 +43,8 @@ export function FieldGuideScreen() {
           <p className="mb-3 text-sm text-muted-foreground">
             Build your own field-reference library from equipment you actually
             encounter. Take a photo, add component callouts, search by brand or
-            tag.
+            tag. New photos are automatically stamped with the local save time
+            and, when you allow location access, device GPS.
           </p>
           <Button
             onClick={() => go("my-photos")}
