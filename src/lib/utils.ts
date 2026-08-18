@@ -64,6 +64,32 @@ export function formatTime(epoch: number): string {
   });
 }
 
+/** Friendly local date + time for evidence/history entries. */
+export function formatTimestamp(epoch: number): string {
+  return new Date(epoch).toLocaleString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/** Compact GPS label. Coordinates are device-reported and not tamper-proof. */
+export function formatGps(
+  latitude?: number,
+  longitude?: number,
+  accuracyMeters?: number
+): string | null {
+  if (latitude == null || longitude == null) return null;
+  const coords = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+  return accuracyMeters != null
+    ? `${coords} (±${Math.round(accuracyMeters)} m)`
+    : coords;
+}
+
 /** Friendly date label. */
 export function formatDateLabel(iso: string): string {
   // Parse YYYY-MM-DD as local date
