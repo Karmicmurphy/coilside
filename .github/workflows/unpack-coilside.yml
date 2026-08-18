@@ -6,6 +6,8 @@ on:
     paths:
       - 'workspace-*.tar'
       - '.github/workflows/unpack-coilside.yml'
+  issues:
+    types: [opened]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,7 @@ permissions:
 
 jobs:
   unpack:
+    if: github.event_name != 'issues' || github.event.issue.title == 'TRIGGER COILSIDE UNPACK'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -41,9 +44,6 @@ jobs:
           tmp="$(mktemp -d)"
           tar -xf "${{ steps.archive.outputs.path }}" -C "$tmp"
 
-          # Copy the actual project while deliberately excluding credentials,
-          # nested Git metadata, local runtime data, generated output and Z.ai
-          # screenshots/backups/debug artifacts.
           rsync -a --delete-excluded \
             --exclude='.git/' \
             --exclude='.env' \
