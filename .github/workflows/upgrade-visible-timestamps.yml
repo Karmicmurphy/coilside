@@ -1,0 +1,89 @@
+name: Upgrade COILSIDE visible timestamps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-visible-timestamps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Make saved-entry timestamps visible
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+            'src/screens/notes-screen.tsx': [
+              ('import { formatDateLabel } from "@/lib/utils";', 'import { formatTimestamp } from "@/lib/utils";'),
+              ('{formatDateLabel(new Date(n.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(n.createdAt)}'),
+            ],
+            'src/screens/sean-notes-screen.tsx': [
+              ('import { cn, formatDateLabel } from "@/lib/utils";', 'import { cn, formatTimestamp } from "@/lib/utils";'),
+              ('{formatDateLabel(new Date(note.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(note.createdAt)}'),
+            ],
+            'src/screens/sean-quotes-screen.tsx': [
+              ('import { cn, formatDateLabel } from "@/lib/utils";', 'import { cn, formatTimestamp } from "@/lib/utils";'),
+              ('{formatDateLabel(new Date(quote.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(quote.createdAt)}'),
+            ],
+            'src/screens/refrigerant-screen.tsx': [
+              ('import { formatDateLabel } from "@/lib/utils";', 'import { formatTimestamp } from "@/lib/utils";'),
+              ('{formatDateLabel(new Date(log.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(log.createdAt)}'),
+            ],
+            'src/screens/installs-screen.tsx': [
+              ('import { formatDateLabel } from "@/lib/utils";', 'import { formatTimestamp } from "@/lib/utils";'),
+              ('{formatDateLabel(new Date(i.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(i.createdAt)}'),
+              ('{formatDateLabel(new Date(install.createdAt).toISOString().slice(0, 10))}', '{formatTimestamp(install.createdAt)}'),
+            ],
+          }
+
+          for filename, pairs in replacements.items():
+            path = Path(filename)
+            text = path.read_text()
+            for old, new in pairs:
+              if old not in text:
+                raise SystemExit(f'Expected text not found in {filename}: {old}')
+              text = text.replace(old, new)
+            path.write_text(text)
+
+          # Work records already contain exact startAt/stopAt timestamps. Make
+          # both ends visually explicit in history without changing edit logic.
+          path = Path('src/screens/work-screen.tsx')
+          text = path.read_text()
+          old = '''            <p className="font-bold">{formatDateLabel(entry.date)}</p>\n            <p className="text-xs text-muted-foreground">\n              {formatTime(entry.startAt)} → {formatTime(entry.stopAt)}'''
+          new = '''            <p className="font-bold">{formatDateLabel(entry.date)}</p>\n            <p className="text-xs text-muted-foreground">\n              Started {formatTime(entry.startAt)} → Stopped {formatTime(entry.stopAt)}'''
+          if old not in text:
+            raise SystemExit('Expected work history timestamp block not found')
+          path.write_text(text.replace(old, new))
+
+          # Explain the evidence behavior where photos are created.
+          path = Path('src/screens/my-photos-screen.tsx')
+          text = path.read_text()
+          old = '''          Build your own field-reference library from equipment you actually\n          encounter. Photos stay on this device. Tap a photo to add callouts\n          pointing at components.'''
+          new = '''          Build your own field-reference library from equipment you actually\n          encounter. Photos stay on this device. Every saved photo gets a local\n          timestamp; new photos can also store device GPS when you allow location\n          access. Tap a photo to add callouts pointing at components.'''
+          if old not in text:
+            raise SystemExit('Expected My Equipment Photos intro not found')
+          path.write_text(text.replace(old, new))
+          PY
+
+          rm -f .github/workflows/upgrade-visible-timestamps.yml
+
+      - name: Commit timestamp upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Show precise timestamps on all saved field entries'
+          git push origin HEAD:main
