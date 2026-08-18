@@ -1,13 +1,19 @@
 {
-  "name": "COILSIDE",
-  "short_name": "COILSIDE",
-  "description": "Residential HVAC field companion — dark, fast, visual.",
+  "name": "WTF STUPID SIMPLE",
+  "short_name": "WTF HVAC",
+  "description": "HVAC — Learn It. Note It. Fix It.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1a1d24",
-  "theme_color": "#1a1d24",
+  "background_color": "#111820",
+  "theme_color": "#111820",
   "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
