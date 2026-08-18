@@ -1,6 +1,6 @@
-// COILSIDE service worker — offline shell without trapping users on stale deploys.
-const CACHE = "coilside-v2";
-const PRECACHE = ["/", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png"];
+// WTF STUPID SIMPLE service worker — offline shell without trapping users on stale deploys.
+const CACHE = "wtf-stupid-simple-v3";
+const PRECACHE = ["/", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -46,9 +46,7 @@ self.addEventListener("fetch", (event) => {
   if (
     request.mode === "navigate" ||
     url.pathname === "/manifest.json" ||
-    url.pathname === "/icon.svg" ||
-    url.pathname === "/icon-192.png" ||
-    url.pathname === "/icon-512.png"
+    url.pathname === "/icon.svg"
   ) {
     event.respondWith(networkFirst(request));
     return;
