@@ -1,0 +1,78 @@
+name: Unpack COILSIDE source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workspace-*.tar'
+      - '.github/workflows/unpack-coilside.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Find uploaded Z.ai archive
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(find . -maxdepth 1 -type f -name 'workspace-*.tar' -print -quit)"
+          if [ -z "$archive" ]; then
+            echo "No workspace tar archive found; nothing to unpack."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using archive: $archive"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "path=$archive" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract and sanitize COILSIDE
+        if: steps.archive.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          tar -xf "${{ steps.archive.outputs.path }}" -C "$tmp"
+
+          # Copy the actual project while deliberately excluding credentials,
+          # nested Git metadata, local runtime data, generated output and Z.ai
+          # screenshots/backups/debug artifacts.
+          rsync -a --delete-excluded \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='node_modules/' \
+            --exclude='.next/' \
+            --exclude='.open-next/' \
+            --exclude='.wrangler/' \
+            --exclude='db/custom.db' \
+            --exclude='download/' \
+            --exclude='upload/' \
+            --exclude='tool-results/' \
+            --exclude='*.log' \
+            --exclude='*.pid' \
+            "$tmp/" ./
+
+          rm -f "${{ steps.archive.outputs.path }}"
+
+      - name: Commit unpacked source
+        if: steps.archive.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No source changes to commit.'
+          else
+            git commit -m 'Unpack and sanitize COILSIDE source'
+            git push origin HEAD:main
+          fi
