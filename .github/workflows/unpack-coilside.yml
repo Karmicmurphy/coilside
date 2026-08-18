@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Find uploaded Z.ai archive
         id: archive
@@ -44,8 +44,12 @@ jobs:
           tmp="$(mktemp -d)"
           tar -xf "${{ steps.archive.outputs.path }}" -C "$tmp"
 
-          rsync -a --delete-excluded \
+          # Copy source into the checked-out repository without ever deleting
+          # the checkout's own .git metadata. Exclusions also keep local-only
+          # credentials, generated output and Z.ai runtime artifacts out of GitHub.
+          rsync -a \
             --exclude='.git/' \
+            --exclude='.github/workflows/unpack-coilside.yml' \
             --exclude='.env' \
             --exclude='.env.*' \
             --exclude='node_modules/' \
@@ -61,6 +65,10 @@ jobs:
             "$tmp/" ./
 
           rm -f "${{ steps.archive.outputs.path }}"
+
+          # Safety check: fail here with a clear message if checkout metadata
+          # is missing for any reason.
+          git rev-parse --is-inside-work-tree
 
       - name: Commit unpacked source
         if: steps.archive.outputs.found == 'true'
