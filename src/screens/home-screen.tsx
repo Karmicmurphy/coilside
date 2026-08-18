@@ -7,7 +7,6 @@ import {
   NotebookPen,
   PlayCircle,
   Wrench,
-  HardHat,
   Flame,
 } from "lucide-react";
 import { BigButton } from "@/components/big-button";
@@ -21,15 +20,20 @@ export function HomeScreen() {
 
   return (
     <div className="flex min-h-dvh flex-col px-4 pb-28 [padding-top:max(1rem,env(safe-area-inset-top))]">
-      {/* Brand header */}
-      <div className="mb-3 flex items-center justify-between gap-3 pt-2">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-amber-400">
-            Field Companion
-          </p>
-          <h1 className="text-3xl font-black tracking-tight">COILSIDE</h1>
+      {/* WTF STUPID SIMPLE brand header */}
+      <div className="mb-4 pt-2 pr-32">
+        <div className="flex items-baseline gap-2 leading-none">
+          <span className="text-4xl font-black tracking-[-0.06em] text-sky-400">W</span>
+          <span className="text-4xl font-black tracking-[-0.06em] text-foreground">T</span>
+          <span className="text-4xl font-black tracking-[-0.06em] text-orange-400">F</span>
+          <span className="text-sm font-black uppercase tracking-[0.16em] text-muted-foreground">
+            Stupid Simple
+          </span>
         </div>
-        <HardHat className="h-8 w-8 text-amber-400" strokeWidth={1.6} />
+        <div className="mt-2 h-px w-full bg-gradient-to-r from-sky-400 via-border to-orange-400" />
+        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          HVAC · Learn It. Note It. Fix It.
+        </p>
       </div>
 
       {/* Primary buttons */}
