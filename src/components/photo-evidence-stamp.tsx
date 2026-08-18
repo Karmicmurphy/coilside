@@ -28,7 +28,12 @@ export function PhotoEvidenceStamp({
 
   const when = photo.capturedAt ?? photo.createdAt;
   const gps = formatGps(photo.latitude, photo.longitude, photo.locationAccuracy);
-  const sourceLabel = photo.source === "upload" ? "Added" : "Captured";
+  const sourceLabel =
+    photo.source === "camera"
+      ? "Captured"
+      : photo.source === "upload"
+        ? "Added"
+        : "Saved";
 
   if (compact) {
     return (
