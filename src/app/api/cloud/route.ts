@@ -5,7 +5,6 @@ import {
   normalizeCloudProfile,
 } from "@/lib/cloud-server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function profileFrom(request: Request): string | null {
@@ -27,10 +26,10 @@ export async function GET(request: Request) {
   }
 
   await ensureStateTable(db);
-  const row = await db
+  const row = (await db
     .prepare("SELECT payload, updated_at FROM coilside_state WHERE profile = ?")
     .bind(profile)
-    .first<{ payload: string; updated_at: number }>();
+    .first()) as { payload: string; updated_at: number } | null;
 
   if (!row) {
     return NextResponse.json({ available: true, found: false });
