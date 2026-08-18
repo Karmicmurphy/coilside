@@ -1,49 +1,77 @@
-// COILSIDE service worker — minimal offline-first PWA shell.
-const CACHE = "coilside-v1";
+// COILSIDE service worker — offline shell without trapping users on stale deploys.
+const CACHE = "coilside-v2";
 const PRECACHE = ["/", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
-});
-
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("fetch", (e) => {
-  const req = e.request;
-  if (req.method !== "GET") return;
-  const url = new URL(req.url);
-  // Network-first for navigations, falling back to cache.
-  if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then((r) => r || caches.match("/")))
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
+      )
+      .then(() => self.clients.claim())
+  );
+});
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return (await caches.match(request)) || (await caches.match("/"));
+  }
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Always prefer the newest deployed app shell and public metadata.
+  if (
+    request.mode === "navigate" ||
+    url.pathname === "/manifest.json" ||
+    url.pathname === "/icon.svg" ||
+    url.pathname === "/icon-192.png" ||
+    url.pathname === "/icon-512.png"
+  ) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Next.js static chunks are content-hashed, so cache-first is safe and fast.
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then(async (response) => {
+            if (response && response.ok) {
+              const cache = await caches.open(CACHE);
+              await cache.put(request, response.clone());
+            }
+            return response;
+          })
+      )
     );
     return;
   }
-  // Cache-first for same-origin static assets.
-  if (url.origin === self.location.origin) {
-    e.respondWith(
-      caches.match(req).then((cached) => {
-        return (
-          cached ||
-          fetch(req).then((res) => {
-            if (res && res.status === 200 && res.type === "basic") {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy));
-            }
-            return res;
-          }).catch(() => cached)
-        );
-      })
-    );
-  }
+
+  // Everything else prefers the network, with cached fallback for offline use.
+  event.respondWith(networkFirst(request));
 });
