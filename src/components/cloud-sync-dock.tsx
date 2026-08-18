@@ -14,19 +14,13 @@ import {
 } from "@/lib/cloud-sync";
 
 export function CloudSyncDock() {
-  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>({
-    phase: "idle",
-    message: "Cloud sync idle.",
-  });
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>(() => getCloudSyncStatus());
   const [open, setOpen] = useState(false);
-  const [profile, setProfile] = useState("");
-  const [draftProfile, setDraftProfile] = useState("");
+  const [profile, setProfile] = useState(() => getCloudProfile());
+  const [draftProfile, setDraftProfile] = useState(() => getCloudProfile());
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setProfile(getCloudProfile());
-    setDraftProfile(getCloudProfile());
-    setSyncStatus(getCloudSyncStatus());
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<CloudSyncStatus>).detail;
       if (detail) setSyncStatus(detail);
