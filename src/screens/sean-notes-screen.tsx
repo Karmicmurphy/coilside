@@ -32,7 +32,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
-import { cn, formatDateLabel } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 /** If navigated here with contextId "sean-cat:<category>", pre-select that category. */
 function usePreselectedCategory(): SeanCategory {
@@ -344,7 +344,7 @@ function SeanNoteCard({
           {SEAN_CATEGORY_LABEL[note.category]}
         </span>
         <span className="text-[10px] text-muted-foreground">
-          {formatDateLabel(new Date(note.createdAt).toISOString().slice(0, 10))}
+          {formatTimestamp(note.createdAt)}
         </span>
       </div>
       <p className="whitespace-pre-wrap text-sm text-foreground/90">{note.text}</p>

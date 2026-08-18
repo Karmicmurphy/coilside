@@ -298,7 +298,7 @@ function EntryCard({
           <div className="min-w-0">
             <p className="font-bold">{formatDateLabel(entry.date)}</p>
             <p className="text-xs text-muted-foreground">
-              {formatTime(entry.startAt)} → {formatTime(entry.stopAt)}
+              Started {formatTime(entry.startAt)} → Stopped {formatTime(entry.stopAt)}
               {entry.breakMinutes > 0 && ` · −${formatHoursFromMinutes(entry.breakMinutes)} break`}
             </p>
           </div>

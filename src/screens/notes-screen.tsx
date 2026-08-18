@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Mic, MicOff, Save, Search, Trash2, Pencil, X } from "lucide-react";
-import { formatDateLabel } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 export function NoteNewScreen() {
@@ -259,7 +259,7 @@ export function NotesListScreen() {
                           Sean
                         </span>
                       )}
-                      <span className="text-[10px] text-muted-foreground">{formatDateLabel(new Date(n.createdAt).toISOString().slice(0, 10))}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatTimestamp(n.createdAt)}</span>
                     </div>
                     {editingId === n.id ? (
                       <div>

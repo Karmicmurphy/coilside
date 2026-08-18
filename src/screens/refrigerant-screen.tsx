@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDateLabel } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 
 export function RefrigerantScreen() {
@@ -190,7 +190,7 @@ function RefrigerantLogCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-bold">{log.refrigerantType}</p>
-          <p className="text-xs text-muted-foreground">{formatDateLabel(new Date(log.createdAt).toISOString().slice(0, 10))}</p>
+          <p className="text-xs text-muted-foreground">{formatTimestamp(log.createdAt)}</p>
         </div>
         <div className="flex gap-1">
           <button onClick={() => setOpen(!open)} className="tap-lg flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary">

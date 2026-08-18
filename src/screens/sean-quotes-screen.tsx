@@ -30,7 +30,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
-import { cn, formatDateLabel } from "@/lib/utils";
+import { cn, formatTimestamp } from "@/lib/utils";
 
 const RATING_BADGE: Record<SeanQuoteRating, string> = {
   decent: "bg-slate-500/20 text-slate-200",
@@ -394,7 +394,7 @@ function SeanQuoteCard({
           </span>
         )}
         <span className="text-[10px] text-muted-foreground">
-          {formatDateLabel(new Date(quote.createdAt).toISOString().slice(0, 10))}
+          {formatTimestamp(quote.createdAt)}
         </span>
       </div>
       <p className="whitespace-pre-wrap text-sm italic text-foreground/90">

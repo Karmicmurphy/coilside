@@ -79,8 +79,9 @@ export function MyPhotosScreen() {
       <div className="space-y-3 p-4">
         <p className="rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
           Build your own field-reference library from equipment you actually
-          encounter. Photos stay on this device. Tap a photo to add callouts
-          pointing at components.
+          encounter. Photos stay on this device. Every saved photo gets a local
+          timestamp; new photos can also store device GPS when you allow location
+          access. Tap a photo to add callouts pointing at components.
         </p>
 
         {/* Storage hint */}

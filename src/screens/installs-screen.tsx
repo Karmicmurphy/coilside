@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronRight, Pencil, Plus, Trash2, X, Camera } from "lucide-react";
-import { formatDateLabel } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
 import { BigButton } from "@/components/big-button";
 import { EditableChecklist } from "@/components/editable-checklist";
 import { makeChecklistItems, DEFAULT_INSTALL_CHECKLIST } from "@/lib/defaults";
@@ -162,7 +162,7 @@ export function InstallsScreen() {
                         {i.model || "— model"} · {i.serial || "— serial"}
                       </p>
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        {formatDateLabel(new Date(i.createdAt).toISOString().slice(0, 10))}
+                        {formatTimestamp(i.createdAt)}
                       </p>
                     </div>
                     <ChevronRight size={20} className="text-muted-foreground" />
@@ -245,7 +245,7 @@ export function InstallDetailScreen() {
             </div>
             <div className="col-span-2">
               <p className="text-xs uppercase text-muted-foreground">Date</p>
-              <p className="font-bold">{formatDateLabel(new Date(install.createdAt).toISOString().slice(0, 10))}</p>
+              <p className="font-bold">{formatTimestamp(install.createdAt)}</p>
             </div>
           </div>
           {install.notes && (
