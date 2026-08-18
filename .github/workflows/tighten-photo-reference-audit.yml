@@ -1,0 +1,48 @@
+name: Tighten COILSIDE photo reference audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tighten-photo-reference-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Apply audit corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/real-hvac-photo-reference.tsx')
+          t = p.read_text()
+          old = '''    credit: "Wikimedia Commons",\n    license: "Reusable Commons license — see source",'''
+          new = '''    credit: "Chris Hunkeler / Wikimedia Commons",\n    license: "CC BY-SA 2.0",'''
+          if old not in t:
+            raise SystemExit('Expected refrigerant-lines credit block not found')
+          t = t.replace(old, new)
+
+          old2 = '''        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">\n          Real photographed hardware only. These are orientation references, not a claim that every brand is laid out the same. Your own field photo is always the better reference.\n        </p>'''
+          new2 = '''        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">\n          Real photographed hardware only. These are orientation references, not a claim that every brand is laid out the same. Your own field photo is always the better reference.\n        </p>\n        <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/80">\n          Audit rule: if we do not have a clearly correct, reusable close-up for a component (for example a residential 24V transformer, HVAC service port, or condensate drain), COILSIDE does not substitute a misleading photo. Capture your own field photo instead.\n        </p>'''
+          if old2 not in t:
+            raise SystemExit('Expected gallery intro block not found')
+          p.write_text(t.replace(old2, new2))
+          PY
+          rm -f .github/workflows/tighten-photo-reference-audit.yml
+
+      - name: Commit audit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Tighten HVAC photo reference accuracy and licensing'
+          git push origin HEAD:main
