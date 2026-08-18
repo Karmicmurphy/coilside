@@ -118,8 +118,8 @@ export const REAL_HVAC_REFERENCES: RealHvacReference[] = [
     why: "Real outdoor unit showing the larger insulated suction line and smaller liquid line entering the condenser.",
     file: "Aging Condenser Unit of a Split Air Conditioning System (7547606426).jpg",
     source: "https://commons.wikimedia.org/wiki/File:Aging_Condenser_Unit_of_a_Split_Air_Conditioning_System_(7547606426).jpg",
-    credit: "Wikimedia Commons",
-    license: "Reusable Commons license — see source",
+    credit: "Chris Hunkeler / Wikimedia Commons",
+    license: "CC BY-SA 2.0",
   },
   {
     id: "refrigerant-service",
@@ -145,6 +145,9 @@ export function RealHvacPhotoReference() {
         </h2>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           Real photographed hardware only. These are orientation references, not a claim that every brand is laid out the same. Your own field photo is always the better reference.
+        </p>
+        <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/80">
+          Audit rule: if we do not have a clearly correct, reusable close-up for a component (for example a residential 24V transformer, HVAC service port, or condensate drain), COILSIDE does not substitute a misleading photo. Capture your own field photo instead.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
