@@ -10,7 +10,10 @@
 //   - PhotoCallout        (arrow + label on a photo)
 //   - expanded CoilsideState.settings (voice prefs)
 //
-// Migration: existing V1 persisted state is forward-compatible. Missing V1.1
+// V1.2 additions:
+//   - photo evidence metadata (capture timestamp, source, optional device GPS)
+//
+// Migration: existing persisted state is forward-compatible. Missing newer
 // fields fall back to safe defaults via the store's `merge` option.
 
 export type Employer = "tim" | "sean";
@@ -148,7 +151,7 @@ export interface ShitTalkDay {
 }
 
 // ============================================================================
-// V1.1 — Equipment Photos
+// V1.1 / V1.2 — Equipment Photos
 // ============================================================================
 
 export type EquipmentType =
@@ -191,12 +194,27 @@ export interface PhotoCallout {
   y: number;
 }
 
+export type PhotoSource = "camera" | "upload";
+
 export interface EquipmentPhoto {
   id: string;
+  /** When the photo record was saved into COILSIDE. */
   createdAt: number;
+  /**
+   * When the image entered the evidence flow. For a camera capture this is set
+   * immediately when the camera result is returned. For a gallery upload it is
+   * the time it was added to COILSIDE, not a claim about the original camera time.
+   */
+  capturedAt?: number;
+  /** Whether this image came from the phone camera or an existing file upload. */
+  source?: PhotoSource;
+  /** Optional device-reported geolocation captured at photo selection time. */
+  latitude?: number;
+  longitude?: number;
+  locationAccuracy?: number;
   /** Photo name (user-supplied) */
   name: string;
-  /** ISO date when the photo was taken — user editable, defaults to createdAt */
+  /** ISO date when the photo was taken/added — user editable for organization. */
   date: string;
   equipmentType: EquipmentType;
   brand?: string;
@@ -210,7 +228,7 @@ export interface EquipmentPhoto {
   /**
    * The image data URL (data:image/jpeg;base64,...).
    *
-   * V1.1 storage strategy:
+   * Storage strategy:
    *   - When IndexedDB is available, the actual image bytes live in
    *     IndexedDB (keyed by `id`) and this field is OMITTED from the
    *     persisted localStorage record. The runtime hydrates it back in
@@ -218,8 +236,8 @@ export interface EquipmentPhoto {
    *   - When IndexedDB is unavailable (older browser / private mode),
    *     this field is persisted in localStorage directly as a fallback.
    *
-   * Either way, the in-memory EquipmentPhoto object always has this
-   * property populated while the app is running.
+   * Either way, the in-memory EquipmentPhoto object may have this property
+   * populated while the app is running.
    */
   dataUrl?: string;
   /** Optional link to a Field Guide section (so a photo can be attached to a reference page) */
