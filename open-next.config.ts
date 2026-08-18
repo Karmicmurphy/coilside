@@ -1,5 +1,6 @@
 // OpenNext adapter config for COILSIDE on Cloudflare Workers.
-// COILSIDE is local-first and does not require server-side data bindings.
+// Cloud resource bindings (D1/R2) are exposed through Wrangler and read from
+// route handlers with getCloudflareContext(). Keep this adapter config minimal.
 
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 

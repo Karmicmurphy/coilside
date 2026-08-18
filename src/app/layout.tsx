@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { PhotoEvidenceCapture } from "@/components/photo-evidence-capture";
+import { CloudSyncBootstrap } from "@/components/cloud-sync-bootstrap";
+import { CloudSyncDock } from "@/components/cloud-sync-dock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,8 +64,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <CloudSyncBootstrap />
         <PhotoEvidenceCapture />
         {children}
+        <CloudSyncDock />
         <Toaster />
         <SonnerToaster position="top-center" />
       </body>

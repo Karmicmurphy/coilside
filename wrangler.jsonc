@@ -1,10 +1,15 @@
 // Cloudflare Workers config for COILSIDE.
 // Built with @opennextjs/cloudflare.
 //
-// COILSIDE is local-first. User data and field photos stay in the browser
-// (localStorage + IndexedDB). The Worker only serves the app and static assets.
-// No D1, KV, R2, Durable Objects, Cloudflare Images, or other paid bindings are
-// required for the current app.
+// The app now supports an optional Cloudflare-backed sync layer:
+//   COILSIDE_DB     -> D1 database for app records/state
+//   COILSIDE_PHOTOS -> R2 bucket for field photos
+//
+// Those resource bindings are intentionally NOT hard-coded here until the real
+// Cloudflare resource IDs/names exist in the account. The app detects missing
+// bindings and keeps working from its browser cache instead of breaking deploys.
+// Once the resources exist, add their real binding blocks here (see
+// CLOUDFLARE-CLOUD-SYNC.md) so Wrangler remains the deployment source of truth.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
