@@ -1,4 +1,4 @@
-name: COILSIDE CI
+name: WTF STUPID SIMPLE CI
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: coilside-ci-${{ github.ref }}
+  group: wtf-stupid-simple-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
