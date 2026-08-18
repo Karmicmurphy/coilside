@@ -1,0 +1,25 @@
+// wrangler.jsonc — Cloudflare Workers config for COILSIDE
+//
+// Built via @opennextjs/cloudflare. Run `bun run cf:build` then `bun run cf:preview`
+// for local preview, or `bun run cf:deploy` to deploy.
+//
+// COILSIDE runs entirely on the free Cloudflare Workers plan:
+//   - No R2 bucket (app is local-first; no server-side cache needed)
+//   - No D1 / KV (no backend database — data lives in browser localStorage)
+//   - No Cloudflare Images (uses inline data URLs + SVG illustrations)
+//   - No paid APIs
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "coilside",
+  "compatibility_date": "2025-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+  // No `services` self-reference, no `r2_buckets`, no `images` binding —
+  // those are only needed when using the optional R2 incremental cache or
+  // Cloudflare Images, both of which require paid plans or extra setup.
+  // COILSIDE doesn't need either.
+}
