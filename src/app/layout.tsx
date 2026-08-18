@@ -18,9 +18,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "COILSIDE",
-  description: "Residential HVAC field companion — dark, fast, visual.",
-  applicationName: "COILSIDE",
+  title: "WTF STUPID SIMPLE",
+  description: "HVAC — Learn It. Note It. Fix It.",
+  applicationName: "WTF STUPID SIMPLE",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -33,12 +33,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "COILSIDE",
+    title: "WTF STUPID SIMPLE",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1a1d24",
+  themeColor: "#111820",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
