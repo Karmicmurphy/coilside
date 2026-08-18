@@ -4,7 +4,6 @@ import {
   normalizeCloudProfile,
 } from "@/lib/cloud-server";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getProfile(request: Request): string | null {
@@ -43,7 +42,9 @@ export async function GET(
 
   const headers = new Headers();
   object.writeHttpMetadata?.(headers);
-  headers.set("etag", object.httpEtag || object.etag || "");
+  if (object.httpEtag || object.etag) {
+    headers.set("etag", object.httpEtag || object.etag);
+  }
   headers.set("cache-control", "private, no-store");
   if (!headers.get("content-type")) {
     headers.set("content-type", "image/jpeg");
