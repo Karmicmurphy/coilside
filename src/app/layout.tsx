@@ -7,58 +7,32 @@ import { PhotoEvidenceCapture } from "@/components/photo-evidence-capture";
 import { CloudSyncBootstrap } from "@/components/cloud-sync-bootstrap";
 import { CloudSyncDock } from "@/components/cloud-sync-dock";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "WTF STUPID SIMPLE",
-  description: "HVAC — Learn It. Note It. Fix It.",
+  description: "Complicated is the enemy. Simple is the solution. HVAC — Learn It. Note It. Fix It.",
   applicationName: "WTF STUPID SIMPLE",
   manifest: "/manifest.json",
-  icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "WTF STUPID SIMPLE",
-  },
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }] },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "WTF STUPID SIMPLE" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111820",
+  themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        {/* Register PWA service worker — must be in head so it loads early */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }); }` }} />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}>
         <CloudSyncBootstrap />
         <PhotoEvidenceCapture />
         {children}
