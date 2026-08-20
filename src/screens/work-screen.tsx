@@ -1,13 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Clipboard, Check, Pencil, Trash2 } from "lucide-react";
 import { AppBar } from "@/components/app-bar";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
 import {
   formatHours,
-  formatHoursFromMinutes,
   formatTime,
   formatDateLabel,
   weekKey,
@@ -38,6 +37,52 @@ function todayIsoLocal(): string {
 
 function totalHoursFor(startAt: number, stopAt: number, breakMinutes: number): number {
   return Math.max(0, stopAt - startAt - breakMinutes * 60_000) / 3_600_000;
+}
+
+function timeFromEpoch(epoch: number): string {
+  const d = new Date(epoch);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function epochFromTime(dateIso: string, hhmm: string): number {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const [hh, mm] = hhmm.split(":").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0).getTime();
+}
+
+function weekRangeLabel(entries: WorkEntry[]): string {
+  if (entries.length === 0) return "Current week";
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  return `${formatDateLabel(sorted[0].date)} – ${formatDateLabel(sorted[sorted.length - 1].date)}`;
+}
+
+function buildWeeklyTimesheet(employer: Employer, entries: WorkEntry[]): string {
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const total = sorted.reduce((sum, e) => sum + e.totalHours, 0);
+  const title = employer === "tim" ? "TIM JOHNSON HEATING & COOLING" : "SEAN / FARMHOUSE";
+
+  const lines = [
+    `${title} — WEEKLY TIME SHEET`,
+    `Week: ${weekRangeLabel(sorted)}`,
+    "",
+  ];
+
+  for (const entry of sorted) {
+    lines.push(formatDateLabel(entry.date));
+    lines.push(`  Start: ${formatTime(entry.startAt)}`);
+    lines.push(`  End: ${formatTime(entry.stopAt)}`);
+    lines.push(
+      entry.breakMinutes > 0
+        ? `  Lunch: Yes (${entry.breakMinutes} min)`
+        : "  Lunch: No"
+    );
+    lines.push(`  Hours: ${entry.totalHours.toFixed(2)}`);
+    if (entry.note) lines.push(`  Note: ${entry.note}`);
+    lines.push("");
+  }
+
+  lines.push(`WEEK TOTAL: ${total.toFixed(2)} HOURS`);
+  return lines.join("\n");
 }
 
 export function WorkScreen() {
@@ -94,63 +139,28 @@ export function WorkScreen() {
   return (
     <div className="min-h-dvh pb-24">
       <AppBar title="Work Hours" subtitle="Manual timecards — no timer" />
-
       <div className="space-y-4 p-4">
         <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={employer === "tim" ? "default" : "outline"}
-            className="h-12"
-            onClick={() => setEmployer("tim")}
-          >
-            Tim Johnson
-          </Button>
-          <Button
-            type="button"
-            variant={employer === "sean" ? "default" : "outline"}
-            className="h-12"
-            onClick={() => setEmployer("sean")}
-          >
-            Farmhouse
-          </Button>
+          <Button type="button" variant={employer === "tim" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("tim")}>Tim Johnson</Button>
+          <Button type="button" variant={employer === "sean" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("sean")}>Farmhouse</Button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">
-            {EMPLOYER_LABEL[employer]}
-          </p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">{EMPLOYER_LABEL[employer]}</p>
 
           <div className="mb-3">
             <Label htmlFor="work-date">Date</Label>
-            <Input
-              id="work-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="h-12"
-            />
+            <Input id="work-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12" />
           </div>
 
           <div className="mb-3 grid grid-cols-2 gap-2">
             <div>
               <Label htmlFor="work-start">Started</Label>
-              <Input
-                id="work-start"
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="h-12"
-              />
+              <Input id="work-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} className="h-12" />
             </div>
             <div>
               <Label htmlFor="work-stop">Ended</Label>
-              <Input
-                id="work-stop"
-                type="time"
-                value={stop}
-                onChange={(e) => setStop(e.target.value)}
-                className="h-12"
-              />
+              <Input id="work-stop" type="time" value={stop} onChange={(e) => setStop(e.target.value)} className="h-12" />
             </div>
           </div>
 
@@ -160,39 +170,19 @@ export function WorkScreen() {
                 <span className="block font-semibold">Took lunch?</span>
                 <span className="block text-xs text-muted-foreground">Leave off for no lunch.</span>
               </span>
-              <input
-                type="checkbox"
-                checked={tookLunch}
-                onChange={(e) => setTookLunch(e.target.checked)}
-                className="h-5 w-5 accent-amber-500"
-              />
+              <input type="checkbox" checked={tookLunch} onChange={(e) => setTookLunch(e.target.checked)} className="h-5 w-5 accent-amber-500" />
             </label>
-
             {tookLunch && (
               <div className="mt-3">
                 <Label htmlFor="lunch-minutes">Lunch minutes</Label>
-                <Input
-                  id="lunch-minutes"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={lunchMinutes}
-                  onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                  className="h-12"
-                />
+                <Input id="lunch-minutes" type="number" inputMode="numeric" min={0} value={lunchMinutes} onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))} className="h-12" />
               </div>
             )}
           </div>
 
           <div className="mb-3">
             <Label htmlFor="work-note">Note (optional)</Label>
-            <Textarea
-              id="work-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="What did I work on?"
-            />
+            <Textarea id="work-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="What did I work on?" />
           </div>
 
           <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
@@ -204,26 +194,16 @@ export function WorkScreen() {
             </p>
           </div>
 
-          {error && (
-            <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
+          {error && <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{error}</p>}
 
-          <Button onClick={saveEntry} className="h-12 w-full bg-amber-500 text-black hover:bg-amber-400">
-            SAVE ENTRY — {previewHours.toFixed(2)} HOURS
-          </Button>
+          <Button onClick={saveEntry} className="h-12 w-full bg-amber-500 text-black hover:bg-amber-400">SAVE ENTRY — {previewHours.toFixed(2)} HOURS</Button>
         </div>
 
         <WeeklyTotalsCard />
 
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "tim" })}>
-            Tim History
-          </Button>
-          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "sean" })}>
-            Farmhouse History
-          </Button>
+          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "tim" })}>Tim Timesheet</Button>
+          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "sean" })}>Farmhouse Timesheet</Button>
         </div>
       </div>
     </div>
@@ -256,50 +236,101 @@ export function WorkHistoryScreen() {
   const workEntries = useCoilsideStore((s) => s.workEntries);
   const update = useCoilsideStore((s) => s.updateWorkEntry);
   const del = useCoilsideStore((s) => s.deleteWorkEntry);
+  const [copied, setCopied] = useState(false);
 
   const employerFilter = (useNav((s) => s.contextId) ?? "tim") as Employer;
   const entries = useMemo(
     () => workEntries.filter((e) => e.employer === employerFilter),
     [workEntries, employerFilter]
   );
-  const total = entries.reduce((sum, entry) => sum + entry.totalHours, 0);
+  const currentWeekKey = weekKey(new Date());
+  const weekEntries = useMemo(
+    () => entries.filter((entry) => weekKey(new Date(`${entry.date}T12:00:00`)) === currentWeekKey),
+    [entries, currentWeekKey]
+  );
+  const weekTotal = weekEntries.reduce((sum, entry) => sum + entry.totalHours, 0);
+  const allTotal = entries.reduce((sum, entry) => sum + entry.totalHours, 0);
+  const timesheetText = buildWeeklyTimesheet(employerFilter, weekEntries);
+
+  async function copyWeeklyTimesheet() {
+    try {
+      await navigator.clipboard.writeText(timesheetText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = timesheetText;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      document.body.removeChild(area);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    }
+  }
 
   return (
     <div className="min-h-dvh pb-24">
-      <AppBar
-        title={`${EMPLOYER_SHORT[employerFilter]} — History`}
-        subtitle={`${entries.length} entries`}
-      />
+      <AppBar title={`${EMPLOYER_SHORT[employerFilter]} — Timesheet`} subtitle={`${weekEntries.length} entries this week`} />
       <div className="space-y-3 p-4">
-        {entries.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No entries yet.
+        <div className="rounded-xl border-2 border-sky-500/30 bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-sky-400">Weekly timesheet</p>
+              <p className="mt-1 font-bold">{EMPLOYER_LABEL[employerFilter]}</p>
+              <p className="text-xs text-muted-foreground">{weekRangeLabel(weekEntries)}</p>
+            </div>
+            <Button onClick={copyWeeklyTimesheet} className="h-11 shrink-0" disabled={weekEntries.length === 0}>
+              {copied ? <Check size={17} className="mr-2" /> : <Clipboard size={17} className="mr-2" />}
+              {copied ? "Copied" : "Copy Week"}
+            </Button>
           </div>
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-border">
+            <div className="grid grid-cols-[1.25fr_0.8fr_0.8fr_1fr_0.75fr] gap-1 bg-background/70 px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              <span>Date</span><span>Start</span><span>End</span><span>Lunch</span><span className="text-right">Hours</span>
+            </div>
+            {weekEntries.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">No hours entered for this week yet.</div>
+            ) : (
+              [...weekEntries].sort((a, b) => a.date.localeCompare(b.date)).map((entry) => (
+                <div key={`summary-${entry.id}`} className="grid grid-cols-[1.25fr_0.8fr_0.8fr_1fr_0.75fr] gap-1 border-t border-border px-2 py-2 text-xs">
+                  <span className="font-semibold">{formatDateLabel(entry.date)}</span>
+                  <span>{formatTime(entry.startAt)}</span>
+                  <span>{formatTime(entry.stopAt)}</span>
+                  <span>{entry.breakMinutes > 0 ? `${entry.breakMinutes} min` : "No"}</span>
+                  <span className="text-right font-black text-amber-300">{entry.totalHours.toFixed(2)}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-3 flex items-end justify-between rounded-lg bg-amber-500/10 p-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Week total</p>
+              <p className="text-xs text-muted-foreground">{weekEntries.length} day{weekEntries.length === 1 ? "" : "s"} documented</p>
+            </div>
+            <p className="text-3xl font-black text-amber-300">{weekTotal.toFixed(2)}h</p>
+          </div>
+        </div>
+
+        <p className="pt-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Saved entries</p>
+        {entries.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No entries yet.</div>
         ) : (
-          entries.map((e) => (
-            <EntryCard key={e.id} entry={e} onUpdate={update} onDelete={del} />
-          ))
+          entries.map((e) => <EntryCard key={e.id} entry={e} onUpdate={update} onDelete={del} />)
         )}
 
-        <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-right">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total shown</p>
-          <p className="text-3xl font-black text-amber-300">{total.toFixed(2)}h</p>
-          <p className="text-xs text-muted-foreground">{formatHours(total)}</p>
+        <div className="rounded-xl border border-border bg-card p-4 text-right">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">All documented hours</p>
+          <p className="text-2xl font-black text-amber-300">{allTotal.toFixed(2)}h</p>
         </div>
       </div>
     </div>
   );
 }
 
-function EntryCard({
-  entry,
-  onUpdate,
-  onDelete,
-}: {
-  entry: WorkEntry;
-  onUpdate: (id: string, patch: Partial<WorkEntry>) => void;
-  onDelete: (id: string) => void;
-}) {
+function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: (id: string, patch: Partial<WorkEntry>) => void; onDelete: (id: string) => void; }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<WorkEntry>(entry);
 
@@ -330,25 +361,10 @@ function EntryCard({
             <p className="text-xs text-muted-foreground">{formatHours(entry.totalHours)}</p>
           </div>
         </div>
-        {entry.note && (
-          <p className="mt-2 rounded bg-background/40 px-2 py-1.5 text-sm text-foreground/90">
-            {entry.note}
-          </p>
-        )}
+        {entry.note && <p className="mt-2 rounded bg-background/40 px-2 py-1.5 text-sm text-foreground/90">{entry.note}</p>}
         <div className="mt-2 flex gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-9">
-            <Pencil size={14} className="mr-1" /> Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              if (confirm("Delete this entry?")) onDelete(entry.id);
-            }}
-            className="h-9 text-red-400"
-          >
-            <Trash2 size={14} className="mr-1" /> Delete
-          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)} className="h-9"><Pencil size={14} className="mr-1" /> Edit</Button>
+          <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this entry?")) onDelete(entry.id); }} className="h-9 text-red-400"><Trash2 size={14} className="mr-1" /> Delete</Button>
         </div>
       </div>
     );
@@ -359,65 +375,32 @@ function EntryCard({
       <h3 className="mb-2 text-sm font-bold">Edit Entry</h3>
       <div className="mb-2">
         <Label htmlFor={`date-${entry.id}`}>Date</Label>
-        <Input
-          id={`date-${entry.id}`}
-          type="date"
-          value={draft.date}
-          onChange={(e) => {
-            const newDate = e.target.value;
-            setDraft({
-              ...draft,
-              date: newDate,
-              startAt: epochFromTime(newDate, timeFromEpoch(draft.startAt)),
-              stopAt: epochFromTime(newDate, timeFromEpoch(draft.stopAt)),
-            });
-          }}
-        />
+        <Input id={`date-${entry.id}`} type="date" value={draft.date} onChange={(e) => {
+          const newDate = e.target.value;
+          setDraft({ ...draft, date: newDate, startAt: epochFromTime(newDate, timeFromEpoch(draft.startAt)), stopAt: epochFromTime(newDate, timeFromEpoch(draft.stopAt)) });
+        }} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label htmlFor={`st-${entry.id}`}>Started</Label>
-          <Input
-            id={`st-${entry.id}`}
-            type="time"
-            value={timeFromEpoch(draft.startAt)}
-            onChange={(e) => setDraft({ ...draft, startAt: epochFromTime(draft.date, e.target.value) })}
-          />
+          <Input id={`st-${entry.id}`} type="time" value={timeFromEpoch(draft.startAt)} onChange={(e) => setDraft({ ...draft, startAt: epochFromTime(draft.date, e.target.value) })} />
         </div>
         <div>
           <Label htmlFor={`et-${entry.id}`}>Ended</Label>
-          <Input
-            id={`et-${entry.id}`}
-            type="time"
-            value={timeFromEpoch(draft.stopAt)}
-            onChange={(e) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, e.target.value) })}
-          />
+          <Input id={`et-${entry.id}`} type="time" value={timeFromEpoch(draft.stopAt)} onChange={(e) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, e.target.value) })} />
         </div>
       </div>
       <div className="mt-2">
         <Label htmlFor={`bm-${entry.id}`}>Lunch minutes (0 = no lunch)</Label>
-        <Input
-          id={`bm-${entry.id}`}
-          type="number"
-          inputMode="numeric"
-          value={draft.breakMinutes}
-          onChange={(e) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-        />
+        <Input id={`bm-${entry.id}`} type="number" inputMode="numeric" value={draft.breakMinutes} onChange={(e) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(e.target.value || "0", 10)) })} />
       </div>
       <div className="mt-2">
         <Label htmlFor={`nn-${entry.id}`}>Note</Label>
-        <Textarea
-          id={`nn-${entry.id}`}
-          rows={2}
-          value={draft.note}
-          onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-        />
+        <Textarea id={`nn-${entry.id}`} rows={2} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
       </div>
       <div className="mt-3 rounded bg-background/50 p-2 text-right">
         <span className="text-sm text-muted-foreground">New total: </span>
-        <span className="font-black text-amber-300">
-          {totalHoursFor(draft.startAt, draft.stopAt, draft.breakMinutes).toFixed(2)}h
-        </span>
+        <span className="font-black text-amber-300">{totalHoursFor(draft.startAt, draft.stopAt, draft.breakMinutes).toFixed(2)}h</span>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Button onClick={save} className="h-11 bg-amber-500 text-black hover:bg-amber-400">Save</Button>
@@ -425,15 +408,4 @@ function EntryCard({
       </div>
     </div>
   );
-}
-
-function timeFromEpoch(epoch: number): string {
-  const d = new Date(epoch);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function epochFromTime(dateIso: string, hhmm: string): number {
-  const [y, m, d] = dateIso.split("-").map(Number);
-  const [hh, mm] = hhmm.split(":").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0).getTime();
 }
