@@ -1,12 +1,12 @@
 {
   "name": "WTF STUPID SIMPLE",
-  "short_name": "WTF HVAC",
-  "description": "HVAC — Learn It. Note It. Fix It.",
+  "short_name": "WTF",
+  "description": "Complicated is the enemy. Simple is the solution. HVAC — Learn It. Note It. Fix It.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#111820",
-  "theme_color": "#111820",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "icons": [
     {
       "src": "/icon.svg",
