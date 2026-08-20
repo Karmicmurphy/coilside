@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Pause,
-  Play,
-  Square,
-  Trash2,
-  Pencil,
-  X,
-  History,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { AppBar } from "@/components/app-bar";
-import { useRouter } from "@/components/screen-router";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
 import {
-  formatElapsed,
   formatHours,
   formatHoursFromMinutes,
   formatTime,
@@ -26,17 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { BigButton } from "@/components/big-button";
-import { cn } from "@/lib/utils";
+import { useNav } from "@/lib/nav";
 
 const EMPLOYER_LABEL: Record<Employer, string> = {
   tim: "Tim Johnson Heating & Cooling",
-  sean: "Sean / Farmhouse & Side Jobs",
+  sean: "Sean / Farmhouse",
 };
 
 const EMPLOYER_SHORT: Record<Employer, string> = {
   tim: "Tim Johnson",
-  sean: "Sean / Farmhouse",
+  sean: "Farmhouse",
 };
 
 function todayIsoLocal(): string {
@@ -47,334 +36,195 @@ function todayIsoLocal(): string {
   return `${y}-${m}-${day}`;
 }
 
+function totalHoursFor(startAt: number, stopAt: number, breakMinutes: number): number {
+  return Math.max(0, stopAt - startAt - breakMinutes * 60_000) / 3_600_000;
+}
+
 export function WorkScreen() {
-  const { go } = useRouter();
-  const active = useCoilsideStore((s) => s.activeTimer);
-  const startTimer = useCoilsideStore((s) => s.startTimer);
-  const stopTimer = useCoilsideStore((s) => s.stopTimer);
-  const cancelTimer = useCoilsideStore((s) => s.cancelTimer);
-
-  const [employer, setEmployer] = useState<Employer | null>(null);
-  const [, setTick] = useState(0);
-  const [stopping, setStopping] = useState(false);
-  const [breakMinutes, setBreakMinutes] = useState(0);
+  const [employer, setEmployer] = useState<Employer>("tim");
+  const [date, setDate] = useState(todayIsoLocal());
+  const [start, setStart] = useState("08:00");
+  const [stop, setStop] = useState("16:00");
+  const [tookLunch, setTookLunch] = useState(false);
+  const [lunchMinutes, setLunchMinutes] = useState(30);
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
 
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualEmployer, setManualEmployer] = useState<Employer>("tim");
-  const [manualDate, setManualDate] = useState(todayIsoLocal());
-  const [manualStart, setManualStart] = useState("08:00");
-  const [manualStop, setManualStop] = useState("16:00");
-  const [manualBreak, setManualBreak] = useState(0);
-  const [manualNote, setManualNote] = useState("");
-  const [manualError, setManualError] = useState("");
+  const startAt = epochFromTime(date, start);
+  const stopAt = epochFromTime(date, stop);
+  const breakMinutes = tookLunch ? Math.max(0, lunchMinutes || 0) : 0;
+  const previewHours = stopAt > startAt ? totalHoursFor(startAt, stopAt, breakMinutes) : 0;
 
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-
-  function confirmStart(emp: Employer) {
-    if (active) return;
-    startTimer(emp);
-    setEmployer(null);
-  }
-
-  function handleStop() {
-    setStopping(true);
-  }
-
-  function confirmStop() {
-    const entry = stopTimer({ breakMinutes, note });
-    setStopping(false);
-    setBreakMinutes(0);
-    setNote("");
-    if (entry) go("work-history", { contextId: entry.employer });
-  }
-
-  function saveManualEntry() {
-    const startAt = epochFromTime(manualDate, manualStart);
-    const stopAt = epochFromTime(manualDate, manualStop);
-    const breakMins = Math.max(0, manualBreak || 0);
-
-    if (!manualDate || !manualStart || !manualStop) {
-      setManualError("Date, start time, and stop time are required.");
+  function saveEntry() {
+    if (!date || !start || !stop) {
+      setError("Date, start time, and end time are required.");
       return;
     }
     if (stopAt <= startAt) {
-      setManualError("Stop time has to be after start time.");
+      setError("End time has to be after start time.");
       return;
     }
-
-    const totalHours = Math.max(0, stopAt - startAt - breakMins * 60_000) / 3_600_000;
-    if (totalHours <= 0) {
-      setManualError("Break time cannot wipe out the whole shift.");
+    if (previewHours <= 0) {
+      setError("Lunch time cannot wipe out the whole shift.");
       return;
     }
 
     const entry: WorkEntry = {
       id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      employer: manualEmployer,
-      date: manualDate,
+      employer,
+      date,
       startAt,
       stopAt,
-      breakMinutes: breakMins,
-      totalHours,
-      note: manualNote.trim(),
+      breakMinutes,
+      totalHours: previewHours,
+      note: note.trim(),
     };
 
     useCoilsideStore.setState((state) => ({
       workEntries: [entry, ...state.workEntries],
+      activeTimer: null,
     }));
 
-    setManualError("");
-    setManualNote("");
-    setManualBreak(0);
-    setManualOpen(false);
-    go("work-history", { contextId: manualEmployer });
+    setError("");
+    setNote("");
+    setTookLunch(false);
+    setLunchMinutes(30);
   }
 
   return (
     <div className="min-h-dvh pb-24">
-      <AppBar title="Work Hours" subtitle="Tim and Sean are tracked separately" />
+      <AppBar title="Work Hours" subtitle="Manual timecards — no timer" />
 
       <div className="space-y-4 p-4">
-        {active && (
-          <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                {EMPLOYER_SHORT[active.employer]}
-              </p>
-              <button
-                onClick={cancelTimer}
-                className="tap-lg flex h-8 items-center rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-            </div>
-            <p className="mt-1 font-mono text-4xl font-black tabular-nums text-amber-100">
-              {formatElapsed(Date.now() - active.startedAt)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Started {formatTime(active.startedAt)}
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleStop}
-                className="h-12 bg-amber-500 text-black hover:bg-amber-400"
-              >
-                <Square size={18} className="mr-2" /> STOP & SAVE
-              </Button>
-              <Button
-                onClick={() => go("work-history", { contextId: active.employer })}
-                variant="secondary"
-                className="h-12"
-              >
-                <History size={18} className="mr-2" /> History
-              </Button>
-            </div>
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={employer === "tim" ? "default" : "outline"}
+            className="h-12"
+            onClick={() => setEmployer("tim")}
+          >
+            Tim Johnson
+          </Button>
+          <Button
+            type="button"
+            variant={employer === "sean" ? "default" : "outline"}
+            className="h-12"
+            onClick={() => setEmployer("sean")}
+          >
+            Farmhouse
+          </Button>
+        </div>
 
-        {active && stopping && (
-          <div className="rounded-xl border-2 border-amber-500/60 bg-card p-4">
-            <h3 className="mb-3 text-base font-bold">Stop & Save Entry</h3>
-            <div className="mb-3">
-              <Label htmlFor="bm">Break / Lunch deduction (minutes)</Label>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">
+            {EMPLOYER_LABEL[employer]}
+          </p>
+
+          <div className="mb-3">
+            <Label htmlFor="work-date">Date</Label>
+            <Input
+              id="work-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-12"
+            />
+          </div>
+
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="work-start">Started</Label>
               <Input
-                id="bm"
-                type="number"
-                inputMode="numeric"
-                value={breakMinutes}
-                onChange={(e) => setBreakMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                min={0}
-                className="h-12 text-lg"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Will deduct {formatHoursFromMinutes(breakMinutes)} from the entry.
-              </p>
-            </div>
-            <div className="mb-3">
-              <Label htmlFor="wn">Short note (optional)</Label>
-              <Textarea
-                id="wn"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                placeholder="What were you working on?"
+                id="work-start"
+                type="time"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                className="h-12"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={confirmStop} className="h-12 bg-amber-500 text-black hover:bg-amber-400">
-                Save Entry
-              </Button>
-              <Button variant="ghost" onClick={() => setStopping(false)} className="h-12">
-                <X size={16} className="mr-1" /> Keep Running
-              </Button>
+            <div>
+              <Label htmlFor="work-stop">Ended</Label>
+              <Input
+                id="work-stop"
+                type="time"
+                value={stop}
+                onChange={(e) => setStop(e.target.value)}
+                className="h-12"
+              />
             </div>
           </div>
-        )}
 
-        {!active && !stopping && (
-          <>
-            <div className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
-              Pick who you&apos;re working for. Tim and farmhouse hours stay strictly separate.
-            </div>
-            {employer === null ? (
-              <div className="space-y-3">
-                <BigButton
-                  label="Tim Johnson Heating & Cooling"
-                  description="Primary employer hours"
-                  icon={<Play size={22} className="text-amber-400" />}
-                  variant="primary"
-                  onClick={() => setEmployer("tim")}
+          <div className="mb-3 rounded-lg border border-border bg-background/40 p-3">
+            <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+              <span>
+                <span className="block font-semibold">Took lunch?</span>
+                <span className="block text-xs text-muted-foreground">Leave off for no lunch.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={tookLunch}
+                onChange={(e) => setTookLunch(e.target.checked)}
+                className="h-5 w-5 accent-amber-500"
+              />
+            </label>
+
+            {tookLunch && (
+              <div className="mt-3">
+                <Label htmlFor="lunch-minutes">Lunch minutes</Label>
+                <Input
+                  id="lunch-minutes"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={lunchMinutes}
+                  onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))}
+                  className="h-12"
                 />
-                <BigButton
-                  label="Sean / Farmhouse & Side Jobs"
-                  description="Farmhouse / side work"
-                  icon={<Play size={22} className="text-amber-400" />}
-                  variant="default"
-                  onClick={() => setEmployer("sean")}
-                />
-                <Button
-                  variant="secondary"
-                  className="h-12 w-full"
-                  onClick={() => {
-                    setManualEmployer("tim");
-                    setManualError("");
-                    setManualOpen(true);
-                  }}
-                >
-                  MANUALLY ENTER HOURS
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-xl border-2 border-amber-500/60 bg-card p-4">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-                  Start timer for:
-                </p>
-                <p className="mb-3 text-lg font-bold">{EMPLOYER_LABEL[employer]}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={() => confirmStart(employer)} className="h-12 bg-amber-500 text-black hover:bg-amber-400">
-                    <Play size={18} className="mr-1" /> Start Now
-                  </Button>
-                  <Button variant="ghost" onClick={() => setEmployer(null)} className="h-12">
-                    Back
-                  </Button>
-                </div>
               </div>
             )}
+          </div>
 
-            {manualOpen && (
-              <div className="rounded-xl border-2 border-sky-500/40 bg-card p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-sky-400">Manual time entry</p>
-                    <h3 className="text-base font-bold">Add hours I forgot to clock</h3>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setManualOpen(false)}>
-                    <X size={16} />
-                  </Button>
-                </div>
+          <div className="mb-3">
+            <Label htmlFor="work-note">Note (optional)</Label>
+            <Textarea
+              id="work-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="What did I work on?"
+            />
+          </div>
 
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={manualEmployer === "tim" ? "default" : "outline"}
-                    className="h-11"
-                    onClick={() => setManualEmployer("tim")}
-                  >
-                    Tim Johnson
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={manualEmployer === "sean" ? "default" : "outline"}
-                    className="h-11"
-                    onClick={() => setManualEmployer("sean")}
-                  >
-                    Farmhouse
-                  </Button>
-                </div>
+          <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">This entry</p>
+            <p className="mt-1 text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p>
+            <p className="text-xs text-muted-foreground">
+              {start || "--:--"} → {stop || "--:--"}
+              {breakMinutes > 0 ? ` · ${breakMinutes} min lunch deducted` : " · no lunch"}
+            </p>
+          </div>
 
-                <div className="mb-3">
-                  <Label htmlFor="manual-date">Date</Label>
-                  <Input
-                    id="manual-date"
-                    type="date"
-                    value={manualDate}
-                    onChange={(e) => setManualDate(e.target.value)}
-                    className="h-12"
-                  />
-                </div>
+          {error && (
+            <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
 
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="manual-start">Start</Label>
-                    <Input
-                      id="manual-start"
-                      type="time"
-                      value={manualStart}
-                      onChange={(e) => setManualStart(e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manual-stop">Stop</Label>
-                    <Input
-                      id="manual-stop"
-                      type="time"
-                      value={manualStop}
-                      onChange={(e) => setManualStop(e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <Label htmlFor="manual-break">Break / lunch deduction (minutes)</Label>
-                  <Input
-                    id="manual-break"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={manualBreak}
-                    onChange={(e) => setManualBreak(Math.max(0, parseInt(e.target.value || "0", 10)))}
-                    className="h-12"
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <Label htmlFor="manual-note">Note (optional)</Label>
-                  <Textarea
-                    id="manual-note"
-                    value={manualNote}
-                    onChange={(e) => setManualNote(e.target.value)}
-                    rows={2}
-                    placeholder="What did I work on?"
-                  />
-                </div>
-
-                {manualError && (
-                  <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">
-                    {manualError}
-                  </p>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={saveManualEntry} className="h-12 bg-sky-500 text-black hover:bg-sky-400">
-                    SAVE HOURS
-                  </Button>
-                  <Button variant="ghost" onClick={() => setManualOpen(false)} className="h-12">
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+          <Button onClick={saveEntry} className="h-12 w-full bg-amber-500 text-black hover:bg-amber-400">
+            SAVE ENTRY — {previewHours.toFixed(2)} HOURS
+          </Button>
+        </div>
 
         <WeeklyTotalsCard />
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "tim" })}>
+            Tim History
+          </Button>
+          <Button variant="secondary" className="h-11" onClick={() => useNav.getState().go("work-history", { contextId: "sean" })}>
+            Farmhouse History
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -407,36 +257,38 @@ export function WorkHistoryScreen() {
   const update = useCoilsideStore((s) => s.updateWorkEntry);
   const del = useCoilsideStore((s) => s.deleteWorkEntry);
 
-  const employerFilter = (useNav_employerContext() ?? "tim") as Employer;
+  const employerFilter = (useNav((s) => s.contextId) ?? "tim") as Employer;
   const entries = useMemo(
     () => workEntries.filter((e) => e.employer === employerFilter),
     [workEntries, employerFilter]
   );
+  const total = entries.reduce((sum, entry) => sum + entry.totalHours, 0);
 
   return (
     <div className="min-h-dvh pb-24">
       <AppBar
         title={`${EMPLOYER_SHORT[employerFilter]} — History`}
-        subtitle={`${entries.length} entries • Tap to edit`}
+        subtitle={`${entries.length} entries`}
       />
       <div className="space-y-3 p-4">
         {entries.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No entries yet. Use START WORK or MANUALLY ENTER HOURS.
+            No entries yet.
           </div>
         ) : (
           entries.map((e) => (
             <EntryCard key={e.id} entry={e} onUpdate={update} onDelete={del} />
           ))
         )}
+
+        <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-right">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total shown</p>
+          <p className="text-3xl font-black text-amber-300">{total.toFixed(2)}h</p>
+          <p className="text-xs text-muted-foreground">{formatHours(total)}</p>
+        </div>
       </div>
     </div>
   );
-}
-
-import { useNav } from "@/lib/nav";
-function useNav_employerContext(): string | null {
-  return useNav((s) => s.contextId);
 }
 
 function EntryCard({
@@ -457,6 +309,7 @@ function EntryCard({
       note: draft.note,
       startAt: draft.startAt,
       stopAt: draft.stopAt,
+      date: draft.date,
     });
     setEditing(false);
   }
@@ -468,8 +321,8 @@ function EntryCard({
           <div className="min-w-0">
             <p className="font-bold">{formatDateLabel(entry.date)}</p>
             <p className="text-xs text-muted-foreground">
-              Started {formatTime(entry.startAt)} → Stopped {formatTime(entry.stopAt)}
-              {entry.breakMinutes > 0 && ` · −${formatHoursFromMinutes(entry.breakMinutes)} break`}
+              {formatTime(entry.startAt)} → {formatTime(entry.stopAt)}
+              {entry.breakMinutes > 0 ? ` · ${entry.breakMinutes} min lunch` : " · no lunch"}
             </p>
           </div>
           <div className="text-right">
@@ -503,37 +356,48 @@ function EntryCard({
 
   return (
     <div className="rounded-lg border-2 border-amber-500/40 bg-card p-3">
-      <h3 className="mb-2 text-sm font-bold">Edit Entry — {formatDateLabel(entry.date)}</h3>
+      <h3 className="mb-2 text-sm font-bold">Edit Entry</h3>
+      <div className="mb-2">
+        <Label htmlFor={`date-${entry.id}`}>Date</Label>
+        <Input
+          id={`date-${entry.id}`}
+          type="date"
+          value={draft.date}
+          onChange={(e) => {
+            const newDate = e.target.value;
+            setDraft({
+              ...draft,
+              date: newDate,
+              startAt: epochFromTime(newDate, timeFromEpoch(draft.startAt)),
+              stopAt: epochFromTime(newDate, timeFromEpoch(draft.stopAt)),
+            });
+          }}
+        />
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label htmlFor="st">Start (24h)</Label>
+          <Label htmlFor={`st-${entry.id}`}>Started</Label>
           <Input
-            id="st"
+            id={`st-${entry.id}`}
             type="time"
-            value={timeFromEpoch(entry.startAt)}
-            onChange={(e) => {
-              const newMs = epochFromTime(entry.date, e.target.value);
-              setDraft({ ...draft, startAt: newMs });
-            }}
+            value={timeFromEpoch(draft.startAt)}
+            onChange={(e) => setDraft({ ...draft, startAt: epochFromTime(draft.date, e.target.value) })}
           />
         </div>
         <div>
-          <Label htmlFor="et">Stop (24h)</Label>
+          <Label htmlFor={`et-${entry.id}`}>Ended</Label>
           <Input
-            id="et"
+            id={`et-${entry.id}`}
             type="time"
-            value={timeFromEpoch(entry.stopAt)}
-            onChange={(e) => {
-              const newMs = epochFromTime(entry.date, e.target.value);
-              setDraft({ ...draft, stopAt: newMs });
-            }}
+            value={timeFromEpoch(draft.stopAt)}
+            onChange={(e) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, e.target.value) })}
           />
         </div>
       </div>
       <div className="mt-2">
-        <Label htmlFor="bm2">Break (minutes)</Label>
+        <Label htmlFor={`bm-${entry.id}`}>Lunch minutes (0 = no lunch)</Label>
         <Input
-          id="bm2"
+          id={`bm-${entry.id}`}
           type="number"
           inputMode="numeric"
           value={draft.breakMinutes}
@@ -541,13 +405,19 @@ function EntryCard({
         />
       </div>
       <div className="mt-2">
-        <Label htmlFor="nn">Note</Label>
+        <Label htmlFor={`nn-${entry.id}`}>Note</Label>
         <Textarea
-          id="nn"
+          id={`nn-${entry.id}`}
           rows={2}
           value={draft.note}
           onChange={(e) => setDraft({ ...draft, note: e.target.value })}
         />
+      </div>
+      <div className="mt-3 rounded bg-background/50 p-2 text-right">
+        <span className="text-sm text-muted-foreground">New total: </span>
+        <span className="font-black text-amber-300">
+          {totalHoursFor(draft.startAt, draft.stopAt, draft.breakMinutes).toFixed(2)}h
+        </span>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Button onClick={save} className="h-11 bg-amber-500 text-black hover:bg-amber-400">Save</Button>
