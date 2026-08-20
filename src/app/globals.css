@@ -43,23 +43,21 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* COILSIDE — dark rugged HVAC field theme (default dark) */
 :root {
   --radius: 0.5rem;
-  /* Rugged dark palette — charcoal/graphite with industrial amber + cool cyan accent */
-  --background: oklch(0.16 0.005 250);            /* near-black charcoal */
-  --foreground: oklch(0.96 0.005 80);             /* off-white, easy outdoors */
-  --card: oklch(0.20 0.006 250);                  /* slightly lighter charcoal */
+  --background: oklch(0.16 0.005 250);
+  --foreground: oklch(0.96 0.005 80);
+  --card: oklch(0.20 0.006 250);
   --card-foreground: oklch(0.96 0.005 80);
   --popover: oklch(0.22 0.006 250);
   --popover-foreground: oklch(0.96 0.005 80);
-  --primary: oklch(0.74 0.165 65);                /* industrial amber */
+  --primary: oklch(0.74 0.165 65);
   --primary-foreground: oklch(0.16 0.005 250);
   --secondary: oklch(0.26 0.008 250);
   --secondary-foreground: oklch(0.96 0.005 80);
   --muted: oklch(0.24 0.006 250);
   --muted-foreground: oklch(0.72 0.01 80);
-  --accent: oklch(0.30 0.02 200);                 /* cyan-tinted accent */
+  --accent: oklch(0.30 0.02 200);
   --accent-foreground: oklch(0.96 0.005 80);
   --destructive: oklch(0.65 0.22 25);
   --border: oklch(0.30 0.008 250 / 65%);
@@ -81,7 +79,6 @@
 }
 
 .dark {
-  /* Same palette — app is dark by default */
   --background: oklch(0.16 0.005 250);
   --foreground: oklch(0.96 0.005 80);
   --card: oklch(0.20 0.006 250);
@@ -118,22 +115,53 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
-  html, body {
+
+  html {
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+    margin: 0;
+    overflow-x: hidden;
     background-color: var(--background);
     color: var(--foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
-  }
-  body {
     @apply antialiased;
     font-feature-settings: "ss01", "cv11";
   }
-  /* Large touch targets everywhere */
-  button, [role="button"], a {
+
+  /* Keep mobile browsers from auto-zooming form controls on focus. */
+  input,
+  textarea,
+  select,
+  button {
+    font-size: 16px;
+  }
+
+  img,
+  svg,
+  canvas,
+  video {
+    max-width: 100%;
+  }
+
+  button,
+  [role="button"],
+  a {
     touch-action: manipulation;
   }
-  /* Custom scrollbar — rugged thin */
+
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -151,13 +179,11 @@
 }
 
 @layer utilities {
-  /* Big industrial heading — uppercase, letter-spaced */
   .heading-industrial {
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
-  /* Tap target sizing helper */
   .tap-lg {
     min-height: 56px;
     min-width: 56px;
@@ -166,7 +192,6 @@
     min-height: 72px;
     min-width: 72px;
   }
-  /* Subtle warning stripe (hazard) for safety callouts */
   .hazard-stripe {
     background-image: repeating-linear-gradient(
       45deg,
