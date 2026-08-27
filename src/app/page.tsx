@@ -13,6 +13,7 @@ import { IndoorCoilScreen } from "@/screens/indoor-coil-screen";
 import { OtherScreen } from "@/screens/other-screen";
 import { AnnualServiceScreen } from "@/screens/annual-service-screen";
 import { FieldGuideScreen } from "@/screens/field-guide-screen";
+import { FieldLogScreen } from "@/screens/field-log-screen";
 import { NoteNewScreen, NotesListScreen } from "@/screens/notes-screen";
 import { BeforeILeaveScreen } from "@/screens/before-i-leave-screen";
 import { InstallsScreen, InstallDetailScreen } from "@/screens/installs-screen";
@@ -44,6 +45,7 @@ function renderScreen(current: Screen): ReactNode {
     case "field-guide":
     case "field-guide-list":
       return <FieldGuideScreen />;
+    case "field-log": return <FieldLogScreen />;
     case "notes": return <NotesListScreen />;
     case "note-new": return <NoteNewScreen />;
     case "before-i-leave": return <BeforeILeaveScreen />;
