@@ -157,7 +157,7 @@ export function FieldLogScreen() {
 
   function saveLog() {
     if (!transcript.trim()) return;
-    addNote({ category: "general-reminder", text: serialize(preview), seanTaught: job === "Tim Johnson" ? true : undefined });
+    addNote({ category: "general-reminder", text: serialize(preview) });
     setTranscript("");
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1800);
