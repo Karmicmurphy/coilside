@@ -18,6 +18,7 @@ export type Screen =
   | "service-other"
   | "annual-service"
   | "field-guide"
+  | "field-log"
   | "notes"
   | "note-new"
   | "before-i-leave"
