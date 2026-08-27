@@ -8,6 +8,7 @@ import {
   PlayCircle,
   Wrench,
   Flame,
+  Radio,
 } from "lucide-react";
 import { BigButton } from "@/components/big-button";
 import { useRouter } from "@/components/screen-router";
@@ -38,7 +39,8 @@ export function HomeScreen() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <BigButton label="START WORK" description="Tim Johnson / Sean" icon={<PlayCircle className="h-7 w-7 text-amber-400" />} variant="primary" onClick={() => go("work")} />
+        <BigButton label="WTF HAPPENED?" description="Tap · talk · save the job" icon={<Radio className="h-7 w-7 text-cyan-400" />} variant="primary" onClick={() => go("field-log")} />
+        <BigButton label="START WORK" description="Tim Johnson / Sean" icon={<PlayCircle className="h-7 w-7 text-amber-400" />} onClick={() => go("work")} />
         <BigButton label="SERVICE CALL" description="Visual troubleshooting" icon={<Wrench className="h-7 w-7 text-amber-400" />} onClick={() => go("service-call")} />
         <BigButton label="ANNUAL SERVICE" description="Editable checklist" icon={<ListChecks className="h-7 w-7 text-amber-400" />} onClick={() => go("annual-service")} />
         <BigButton label="FIELD GUIDE" description="Visual references + my photos" icon={<ClipboardCheck className="h-7 w-7 text-amber-400" />} onClick={() => go("field-guide")} />
