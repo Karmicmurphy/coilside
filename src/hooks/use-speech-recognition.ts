@@ -4,7 +4,6 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-// Minimal ambient typings for SpeechRecognition — TS lib doesn't ship these.
 interface SpeechRecognitionResultLike {
   0: { transcript: string; confidence: number };
   isFinal: boolean;
@@ -43,14 +42,19 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
 
+function normalizeSpeechChunk(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export function useSpeechRecognition() {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const onResultRef = useRef<((text: string, isFinal: boolean) => void) | null>(null);
+  const emittedFinalByIndexRef = useRef<Map<number, string>>(new Map());
+  const lastEmittedChunkRef = useRef<string>("");
 
-  // Compute support once, lazily — no effect needed.
   const supported = useMemo(() => getRecognitionCtor() !== null, []);
 
   const start = useCallback(
@@ -60,7 +64,7 @@ export function useSpeechRecognition() {
         setError("Speech recognition not supported in this browser. Type instead.");
         return;
       }
-      // Stop any prior session
+
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -69,12 +73,15 @@ export function useSpeechRecognition() {
         }
       }
 
+      emittedFinalByIndexRef.current.clear();
+      lastEmittedChunkRef.current = "";
+      setInterim("");
+
       const rec = new Ctor();
       rec.lang = "en-US";
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
-
       onResultRef.current = onResult;
 
       rec.onstart = () => {
@@ -84,10 +91,10 @@ export function useSpeechRecognition() {
       rec.onend = () => {
         setListening(false);
         setInterim("");
+        recognitionRef.current = null;
       };
       rec.onerror = (e) => {
         if (e.error === "no-speech" || e.error === "aborted") {
-          // benign
           setListening(false);
           return;
         }
@@ -99,18 +106,34 @@ export function useSpeechRecognition() {
         setListening(false);
       };
       rec.onresult = (event) => {
+        const newFinalChunks: string[] = [];
         let interimText = "";
-        let finalText = "";
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
-          const txt = r[0].transcript;
-          if (r.isFinal) finalText += txt;
-          else interimText += txt;
+          const txt = normalizeSpeechChunk(r[0].transcript);
+          if (!txt) continue;
+
+          if (r.isFinal) {
+            const prior = emittedFinalByIndexRef.current.get(i);
+            if (prior === txt) continue;
+            emittedFinalByIndexRef.current.set(i, txt);
+            newFinalChunks.push(txt);
+          } else {
+            interimText += `${interimText ? " " : ""}${txt}`;
+          }
         }
-        if (interimText) setInterim(interimText);
-        else setInterim("");
-        if (finalText && onResultRef.current) {
-          onResultRef.current(finalText.trim(), true);
+
+        setInterim(interimText);
+
+        if (newFinalChunks.length && onResultRef.current) {
+          const chunk = normalizeSpeechChunk(newFinalChunks.join(" "));
+          // Some Android/Chrome builds occasionally finalize the same phrase under a
+          // fresh result index. Do not append an identical adjacent final chunk twice.
+          if (chunk && chunk !== lastEmittedChunkRef.current) {
+            lastEmittedChunkRef.current = chunk;
+            onResultRef.current(chunk, true);
+          }
         }
       };
 
@@ -132,7 +155,6 @@ export function useSpeechRecognition() {
       } catch {
         /* ignore */
       }
-      setListening(false);
     }
   }, []);
 
@@ -143,9 +165,11 @@ export function useSpeechRecognition() {
       } catch {
         /* ignore */
       }
-      setListening(false);
-      setInterim("");
     }
+    setListening(false);
+    setInterim("");
+    emittedFinalByIndexRef.current.clear();
+    lastEmittedChunkRef.current = "";
   }, []);
 
   return {
