@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, Mic, MicOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useCoilsideStore } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
@@ -18,6 +19,13 @@ type ParsedShift = {
   source: string;
 };
 
+type DayMarker = {
+  label: string;
+  date: Date;
+  start: number;
+  end: number;
+};
+
 const DAY_INDEX: Record<string, number> = {
   sunday: 0,
   monday: 1,
@@ -28,6 +36,26 @@ const DAY_INDEX: Record<string, number> = {
   saturday: 6,
 };
 
+const MONTH_INDEX: Record<string, number> = {
+  january: 0, jan: 0,
+  february: 1, feb: 1,
+  march: 2, mar: 2,
+  april: 3, apr: 3,
+  may: 4,
+  june: 5, jun: 5,
+  july: 6, jul: 6,
+  august: 7, aug: 7,
+  september: 8, sep: 8, sept: 8,
+  october: 9, oct: 9,
+  november: 10, nov: 10,
+  december: 11, dec: 11,
+};
+
+const NUMBER_WORDS: Record<string, string> = {
+  one: "1", two: "2", three: "3", four: "4", five: "5", six: "6",
+  seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12",
+};
+
 function isoLocal(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -35,26 +63,95 @@ function isoLocal(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function dateForSpokenDay(label: string): Date {
+function normalizeTranscript(text: string): string {
+  let value = text
+    .replace(/\ba\s*\.\s*m\s*\.?\b/gi, "am")
+    .replace(/\bp\s*\.\s*m\s*\.?\b/gi, "pm")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Android speech occasionally returns identical adjacent words several times.
+  value = value.replace(/\b([a-z]+)(?:\s+\1){1,}\b/gi, "$1");
+
+  // Also collapse repeated month/date phrases such as "August 24th August 24th".
+  value = value.replace(
+    /\b((?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?)(?:\s+\1){1,}\b/gi,
+    "$1"
+  );
+
+  for (const [word, digit] of Object.entries(NUMBER_WORDS)) {
+    value = value.replace(new RegExp(`\\b${word}\\b`, "gi"), digit);
+  }
+  return value;
+}
+
+function mostRecentWeekday(dayName: string): Date {
   const now = new Date();
   now.setHours(12, 0, 0, 0);
-  const lower = label.toLowerCase();
-  if (lower === "today") return now;
-  if (lower === "yesterday") {
-    const d = new Date(now);
-    d.setDate(d.getDate() - 1);
-    return d;
-  }
-
-  const wanted = DAY_INDEX[lower];
+  const wanted = DAY_INDEX[dayName.toLowerCase()];
   const sunday = new Date(now);
   sunday.setDate(now.getDate() - now.getDay());
   const result = new Date(sunday);
   result.setDate(sunday.getDate() + wanted);
-  // If somebody says a weekday later than today, assume the most recent one,
-  // not a future shift that has not happened yet.
   if (result.getTime() > now.getTime()) result.setDate(result.getDate() - 7);
   return result;
+}
+
+function explicitDate(monthRaw: string, dayRaw: string): Date | null {
+  const month = MONTH_INDEX[monthRaw.toLowerCase()];
+  if (month == null) return null;
+  const day = Number(dayRaw.replace(/(?:st|nd|rd|th)$/i, ""));
+  if (!Number.isFinite(day) || day < 1 || day > 31) return null;
+  const now = new Date();
+  let year = now.getFullYear();
+  let result = new Date(year, month, day, 12, 0, 0, 0);
+  // A spoken date far in the future is almost certainly last year's date.
+  if (result.getTime() - now.getTime() > 45 * 24 * 60 * 60 * 1000) {
+    year -= 1;
+    result = new Date(year, month, day, 12, 0, 0, 0);
+  }
+  return result;
+}
+
+function findDayMarkers(text: string): DayMarker[] {
+  const monthPattern = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+  const markerRe = new RegExp(
+    `\\b(today|yesterday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?:\\s*,?\\s*(${monthPattern})\\s+(\\d{1,2}(?:st|nd|rd|th)?))?|\\b(${monthPattern})\\s+(\\d{1,2}(?:st|nd|rd|th)?)`,
+    "gi"
+  );
+
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+  const markers: DayMarker[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = markerRe.exec(text))) {
+    const relativeOrWeekday = match[1]?.toLowerCase();
+    const attachedMonth = match[2];
+    const attachedDay = match[3];
+    const standaloneMonth = match[4];
+    const standaloneDay = match[5];
+
+    let date: Date | null = null;
+    let label = match[0];
+
+    if (attachedMonth && attachedDay) {
+      date = explicitDate(attachedMonth, attachedDay);
+    } else if (relativeOrWeekday === "today") {
+      date = new Date(now);
+    } else if (relativeOrWeekday === "yesterday") {
+      date = new Date(now);
+      date.setDate(date.getDate() - 1);
+    } else if (relativeOrWeekday) {
+      date = mostRecentWeekday(relativeOrWeekday);
+    } else if (standaloneMonth && standaloneDay) {
+      date = explicitDate(standaloneMonth, standaloneDay);
+    }
+
+    if (date) markers.push({ label, date, start: match.index, end: markerRe.lastIndex });
+  }
+  return markers;
 }
 
 function parseClock(raw: string, isEnd: boolean, startHour?: number): { hour: number; minute: number } | null {
@@ -69,15 +166,8 @@ function parseClock(raw: string, isEnd: boolean, startHour?: number): { hour: nu
   if (meridiem === "pm" && hour < 12) hour += 12;
   if (meridiem === "am" && hour === 12) hour = 0;
 
-  if (!meridiem) {
-    if (!isEnd) {
-      // Field-work shorthand: “8” means 8 AM unless explicitly said otherwise.
-      if (hour === 12) hour = 12;
-    } else if (startHour != null) {
-      // “8 to 4:30” / “8 to 2:30” means afternoon ending time.
-      if (hour < 12 && hour <= startHour) hour += 12;
-      else if (hour < 7) hour += 12;
-    }
+  if (!meridiem && isEnd && startHour != null) {
+    if (hour < 12 && (hour <= startHour || hour < 7)) hour += 12;
   }
   return { hour, minute };
 }
@@ -88,52 +178,58 @@ function epoch(date: Date, clock: { hour: number; minute: number }): number {
 
 function lunchMinutesFor(segment: string): number {
   if (/no\s+lunch|without\s+lunch|didn['’]?t\s+(?:take|have)\s+(?:a\s+)?lunch/i.test(segment)) return 0;
-  const minuteMatch = segment.match(/(?:lunch|break)[^\d]{0,15}(\d{1,3})\s*(?:min|minute)/i)
-    || segment.match(/(\d{1,3})\s*(?:min|minute)[^,.]{0,12}(?:lunch|break)/i);
+  const minuteMatch = segment.match(/(?:lunch|break)[^\d]{0,20}(\d{1,3})\s*(?:min|minute)/i)
+    || segment.match(/(\d{1,3})\s*(?:min|minute)[^,.]{0,20}(?:lunch|break)/i);
   if (minuteMatch) return Math.max(0, Number(minuteMatch[1]));
-  if (/took\s+(?:a\s+)?lunch|had\s+(?:a\s+)?lunch|lunch/i.test(segment)) return 30;
+  if (/took\s+(?:a\s+)?lunch|had\s+(?:a\s+)?lunch|took\s+(?:a\s+)?break|\blunch\b/i.test(segment)) return 30;
   return 0;
 }
 
-function parseSegment(dayLabel: string, segment: string): ParsedShift | null {
-  const date = dateForSpokenDay(dayLabel);
+function parseSegment(date: Date, segment: string): ParsedShift | null {
   const dateIso = isoLocal(date);
-  const zero = /didn['’]?t\s+work|did\s+not\s+work|off\s+work|zero\s+hours|0\s+hours/i.test(segment);
+  const zero = /didn['’]?t\s+work|did\s+not\s+work|was\s+off|off\s+work|zero\s+hours|0\s+hours|no\s+work/i.test(segment);
   if (zero) {
     const at = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0).getTime();
     return { date: dateIso, startAt: at, stopAt: at, breakMinutes: 0, totalHours: 0, zeroDay: true, source: segment.trim() };
   }
 
-  const times = segment.match(/(?:worked|work|from)?\s*(\d{1,2}(?::\d{1,2})?\s*(?:am|pm)?)\s*(?:to|until|till|-)\s*(\d{1,2}(?::\d{1,2})?\s*(?:am|pm)?)/i);
+  const times = segment.match(
+    /(?:worked|work|from|started(?:\s+at)?|start(?:ed)?(?:\s+at)?)?\s*(\d{1,2}(?::\d{1,2})?\s*(?:am|pm)?)\s*(?:to|until|till|through|-)\s*(\d{1,2}(?::\d{1,2})?\s*(?:am|pm)?)/i
+  );
   if (!times) return null;
+
   const startClock = parseClock(times[1], false);
   if (!startClock) return null;
   const stopClock = parseClock(times[2], true, startClock.hour);
   if (!stopClock) return null;
+
   const startAt = epoch(date, startClock);
   let stopAt = epoch(date, stopClock);
   if (stopAt <= startAt) stopAt += 12 * 60 * 60 * 1000;
+
   const breakMinutes = lunchMinutesFor(segment);
   const totalHours = Math.max(0, stopAt - startAt - breakMinutes * 60_000) / 3_600_000;
+  if (totalHours <= 0 || totalHours > 20) return null;
+
   return { date: dateIso, startAt, stopAt, breakMinutes, totalHours, zeroDay: false, source: segment.trim() };
 }
 
 function parseVoiceHours(text: string): ParsedShift[] {
-  const normalized = ` ${text.replace(/\n/g, " ").replace(/\s+/g, " ").trim()} `;
-  const dayRe = /\b(yesterday|today|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi;
-  const matches = [...normalized.matchAll(dayRe)];
+  const normalized = normalizeTranscript(text);
+  const markers = findDayMarkers(normalized);
   const shifts: ParsedShift[] = [];
-  for (let i = 0; i < matches.length; i++) {
-    const label = matches[i][1];
-    const start = (matches[i].index || 0) + matches[i][0].length;
-    const end = i + 1 < matches.length ? (matches[i + 1].index || normalized.length) : normalized.length;
-    const segment = normalized.slice(start, end).replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, "");
-    const parsed = parseSegment(label, segment);
+
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    const nextStart = i + 1 < markers.length ? markers[i + 1].start : normalized.length;
+    const segment = normalized.slice(marker.end, nextStart).replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, "");
+    const parsed = parseSegment(marker.date, segment);
     if (parsed) shifts.push(parsed);
   }
 
-  // De-dupe by date; the last thing spoken for a date wins.
-  return Array.from(new Map(shifts.map((shift) => [shift.date, shift])).values()).sort((a, b) => a.date.localeCompare(b.date));
+  // Last spoken entry for the same date wins, preventing repeated recognition from duplicating a day.
+  return Array.from(new Map(shifts.map((shift) => [shift.date, shift])).values())
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function VoiceHoursCapture() {
@@ -145,7 +241,9 @@ export function VoiceHoursCapture() {
 
   function start() {
     setSaved(false);
-    speech.start((finalText) => setTranscript((prev) => `${prev}${prev ? " " : ""}${finalText}`.trim()));
+    speech.start((finalText) => {
+      setTranscript((prev) => normalizeTranscript(`${prev}${prev ? " " : ""}${finalText}`));
+    });
   }
 
   function clear() {
@@ -169,11 +267,11 @@ export function VoiceHoursCapture() {
     }));
 
     useCoilsideStore.setState((state) => {
-      // Replace an existing same-employer/same-date entry instead of silently doubling the day.
       const dates = new Set(newEntries.map((e) => e.date));
       const remaining = state.workEntries.filter((e) => !(e.employer === employer && dates.has(e.date)));
       return { workEntries: [...newEntries, ...remaining], activeTimer: null };
     });
+
     setSaved(true);
     setTranscript("");
     window.setTimeout(() => setSaved(false), 1800);
@@ -183,7 +281,7 @@ export function VoiceHoursCapture() {
     <div className="rounded-xl border-2 border-cyan-500/30 bg-card p-4">
       <div className="mb-3">
         <p className="text-xs font-black uppercase tracking-wider text-cyan-400">WTF Simple Voice Hours</p>
-        <p className="mt-1 text-sm text-muted-foreground">Tap it. Say your days. Check it. Save it.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Tap it. Say the week naturally. Check it. Save it.</p>
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
@@ -198,13 +296,17 @@ export function VoiceHoursCapture() {
         {speech.listening ? <><MicOff size={23} className="mr-2" /> STOP LISTENING</> : <><Mic size={23} className="mr-2" /> SAY MY HOURS</>}
       </Button>
 
-      <p className="mt-2 text-xs text-muted-foreground">Example: “Yesterday worked 8 to 4:30, no lunch. Monday didn’t work. Tuesday worked 8 to 2:30, took a lunch.”</p>
-      {speech.interim && <p className="mt-2 text-sm italic text-muted-foreground">…{speech.interim}</p>}
+      <p className="mt-2 text-xs text-muted-foreground">Example: “Monday August 24th, worked 8 to 4:30, no lunch. Tuesday worked 8 to 2:30, took a lunch.”</p>
+      {speech.interim && <p className="mt-2 text-sm italic text-muted-foreground">Hearing: {speech.interim}</p>}
       {speech.error && <p className="mt-2 text-sm text-amber-300">{speech.error}</p>}
 
       {transcript && (
         <div className="mt-3 space-y-3">
-          <div className="rounded-lg bg-background/50 p-3 text-sm">“{transcript}”</div>
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What I heard — edit if needed</p>
+            <Textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={4} />
+          </div>
+
           {parsed.length ? (
             <div className="overflow-hidden rounded-lg border border-border">
               {parsed.map((shift) => (
@@ -220,7 +322,9 @@ export function VoiceHoursCapture() {
               ))}
             </div>
           ) : (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">I didn’t find a complete day/time entry yet. Say the weekday plus “worked 8 to 4:30” or “didn’t work.”</p>
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+              I heard you, but I don’t have a complete day + hours yet. Say something like “Monday worked 8 to 4:30, no lunch” or edit the words above.
+            </p>
           )}
 
           <div className="grid grid-cols-[1fr_auto] gap-2">
