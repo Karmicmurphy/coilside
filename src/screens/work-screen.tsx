@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Pencil, Share2, Trash2 } from "lucide-react";
 import { AppBar } from "@/components/app-bar";
+import { VoiceHoursCapture } from "@/components/voice-hours-capture";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
 import { formatHours, formatTime, formatDateLabel, weekKey } from "@/lib/utils";
@@ -181,12 +182,14 @@ export function WorkScreen() {
     <div className="min-h-dvh pb-24">
       <AppBar title="Work Hours" subtitle="Sunday–Saturday work weeks" />
       <div className="space-y-4 p-4">
+        <VoiceHoursCapture />
+
         <div className="grid grid-cols-2 gap-2">
           <Button variant={employer === "tim" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("tim")}>Tim Johnson</Button>
           <Button variant={employer === "sean" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("sean")}>Farmhouse</Button>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">{EMPLOYER_LABEL[employer]}</p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">Manual entry · {EMPLOYER_LABEL[employer]}</p>
           <Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mb-3 h-12" />
           <div className="mb-3 grid grid-cols-2 gap-2">
             <div><Label>Started</Label><Input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="h-12" /></div>
