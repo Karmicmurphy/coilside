@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
 import { authenticateTeam } from "@/lib/team-auth";
-import {
-  getCoilsideCloudBindings,
-  normalizeCloudProfile,
-} from "@/lib/cloud-server";
+import { getCoilsideCloudBindings } from "@/lib/cloud-server";
 
 export const dynamic = "force-dynamic";
-
-function getProfile(request: Request): string | null {
-  return normalizeCloudProfile(request.headers.get("x-coilside-profile"));
-}
 
 function safePhotoId(value: string): string | null {
   const id = value.trim();
@@ -27,7 +20,7 @@ export async function GET(
   const identity = await authenticateTeam(request);
   if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
   if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
-  const profile = getProfile(request);
+  const profile = identity.room;
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
     return NextResponse.json({ error: "Invalid photo request." }, { status: 400 });
@@ -64,7 +57,7 @@ export async function PUT(
   const identity = await authenticateTeam(request);
   if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
   if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
-  const profile = getProfile(request);
+  const profile = identity.room;
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
     return NextResponse.json({ error: "Invalid photo request." }, { status: 400 });
@@ -102,7 +95,7 @@ export async function DELETE(
   const identity = await authenticateTeam(request);
   if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
   if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
-  const profile = getProfile(request);
+  const profile = identity.room;
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
     return NextResponse.json({ error: "Invalid photo request." }, { status: 400 });
