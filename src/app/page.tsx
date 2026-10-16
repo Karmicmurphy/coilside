@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useNav, type Screen } from "@/lib/nav";
 import { HomeScreen } from "@/screens/home-screen";
 import { WorkScreen, WorkHistoryScreen } from "@/screens/work-screen";
@@ -64,6 +64,9 @@ function renderScreen(current: Screen): ReactNode {
 export default function Page() {
   const current = useNav((s) => s.current);
   const go = useNav((s) => s.go);
+  useEffect(() => {
+    if (window.location.hash.startsWith("#coilside-invite=") || window.location.hash.startsWith("#coilside-owner=")) go("team-notes");
+  }, [go]);
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-md bg-background">
