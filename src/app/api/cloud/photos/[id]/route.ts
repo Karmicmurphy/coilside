@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authenticateTeam } from "@/lib/team-auth";
 import {
   getCoilsideCloudBindings,
   normalizeCloudProfile,
@@ -23,6 +24,9 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const identity = await authenticateTeam(request);
+  if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
+  if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
   const profile = getProfile(request);
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
@@ -57,6 +61,9 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const identity = await authenticateTeam(request);
+  if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
+  if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
   const profile = getProfile(request);
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
@@ -92,6 +99,9 @@ export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const identity = await authenticateTeam(request);
+  if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
+  if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can access cloud photos." }, { status: 403 });
   const profile = getProfile(request);
   const id = safePhotoId((await context.params).id);
   if (!profile || !id) {
