@@ -1,15 +1,7 @@
-// Cloudflare Workers config for COILSIDE.
-// Built with @opennextjs/cloudflare.
-//
-// The app now supports an optional Cloudflare-backed sync layer:
-//   COILSIDE_DB     -> D1 database for app records/state
-//   COILSIDE_PHOTOS -> R2 bucket for field photos
-//
-// Those resource bindings are intentionally NOT hard-coded here until the real
-// Cloudflare resource IDs/names exist in the account. The app detects missing
-// bindings and keeps working from its browser cache instead of breaking deploys.
-// Once the resources exist, add their real binding blocks here (see
-// CLOUDFLARE-CLOUD-SYNC.md) so Wrangler remains the deployment source of truth.
+// COILSIDE existing production Worker, built with @opennextjs/cloudflare.
+// Dedicated D1 created and bound by Cloudflare Agent Lee on 2026-10-15.
+// Keep the D1 binding in source so later Wrangler deploys do not lose it.
+// Equipment photo R2 storage remains deliberately deferred.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
@@ -19,5 +11,13 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "COILSIDE_DB",
+      "database_name": "coilside-team-2026",
+      "database_id": "228d72be-effe-4f17-9889-e06ef87f2826",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
