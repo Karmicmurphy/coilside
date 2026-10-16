@@ -16,11 +16,13 @@ import { useNav } from "@/lib/nav";
 const EMPLOYER_LABEL: Record<Employer, string> = {
   tim: "Tim Johnson Heating & Cooling",
   sean: "Sean / Farmhouse",
+  jesse: "Jesse Johnson — Independent Projects",
 };
 
 const EMPLOYER_SHORT: Record<Employer, string> = {
   tim: "Tim Johnson",
   sean: "Farmhouse",
+  jesse: "Jesse Johnson",
 };
 
 function todayIsoLocal(): string {
@@ -184,9 +186,10 @@ export function WorkScreen() {
       <div className="space-y-4 p-4">
         <VoiceHoursCapture />
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Button variant={employer === "tim" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("tim")}>Tim Johnson</Button>
           <Button variant={employer === "sean" ? "default" : "outline"} className="h-12" onClick={() => setEmployer("sean")}>Farmhouse</Button>
+          <Button variant={employer === "jesse" ? "default" : "outline"} className="h-12 px-1 text-xs" onClick={() => setEmployer("jesse")}>Jesse Johnson</Button>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">Manual entry · {EMPLOYER_LABEL[employer]}</p>
@@ -206,7 +209,11 @@ export function WorkScreen() {
           </div>
         </div>
         <WeeklyTotalsCard />
-        <div className="grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => useNav.getState().go("work-history", { contextId: "tim" })}>Tim Timesheet</Button><Button variant="secondary" onClick={() => useNav.getState().go("work-history", { contextId: "sean" })}>Farmhouse Timesheet</Button></div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Button variant="secondary" onClick={() => useNav.getState().go("work-history", { contextId: "tim" })}>Tim Timesheet</Button>
+          <Button variant="secondary" onClick={() => useNav.getState().go("work-history", { contextId: "sean" })}>Farmhouse Timesheet</Button>
+          <Button variant="secondary" onClick={() => useNav.getState().go("work-history", { contextId: "jesse" })}>Jesse Timesheet</Button>
+        </div>
       </div>
     </div>
   );
@@ -217,7 +224,8 @@ function WeeklyTotalsCard() {
   const key = weekKey(new Date());
   const tim = weeklyTotalsFor(workEntries, "tim", key);
   const sean = weeklyTotalsFor(workEntries, "sean", key);
-  return <div className="grid grid-cols-2 gap-3"><div className="rounded-lg border border-border bg-card p-3"><p className="text-xs uppercase text-muted-foreground">Tim this week</p><p className="text-2xl font-black text-amber-300">{tim.hours.toFixed(2)}h</p></div><div className="rounded-lg border border-border bg-card p-3"><p className="text-xs uppercase text-muted-foreground">Farmhouse this week</p><p className="text-2xl font-black text-amber-300">{sean.hours.toFixed(2)}h</p></div></div>;
+  const jesse = weeklyTotalsFor(workEntries, "jesse", key);
+  return <div className="grid grid-cols-3 gap-2"><div className="rounded-lg border border-border bg-card p-3"><p className="text-xs uppercase text-muted-foreground">Tim this week</p><p className="text-2xl font-black text-amber-300">{tim.hours.toFixed(2)}h</p></div><div className="rounded-lg border border-border bg-card p-3"><p className="text-xs uppercase text-muted-foreground">Farmhouse this week</p><p className="text-2xl font-black text-amber-300">{sean.hours.toFixed(2)}h</p></div><div className="rounded-lg border border-border bg-card p-3"><p className="text-xs uppercase text-muted-foreground">Jesse this week</p><p className="text-2xl font-black text-amber-300">{jesse.hours.toFixed(2)}h</p></div></div>;
 }
 
 export function WorkHistoryScreen() {
