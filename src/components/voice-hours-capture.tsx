@@ -287,6 +287,7 @@ export function VoiceHoursCapture() {
       <div className="mb-3 grid grid-cols-2 gap-2">
         <Button variant={employer === "tim" ? "default" : "outline"} onClick={() => setEmployer("tim")}>Tim Johnson</Button>
         <Button variant={employer === "sean" ? "default" : "outline"} onClick={() => setEmployer("sean")}>Farmhouse</Button>
+          <Button variant={employer === "jesse" ? "default" : "outline"} onClick={() => setEmployer("jesse")}>Jesse Johnson</Button>
       </div>
 
       <Button

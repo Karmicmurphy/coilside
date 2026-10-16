@@ -16,13 +16,6 @@ export function getCoilsideCloudBindings(): CoilsideCloudBindings {
   }
 }
 
-export function normalizeCloudProfile(value: string | null): string | null {
-  if (!value) return null;
-  const profile = value.trim();
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(profile)) return null;
-  return profile;
-}
-
 export async function ensureStateTable(db: any): Promise<void> {
   await db
     .prepare(

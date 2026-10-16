@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useNav, type Screen } from "@/lib/nav";
 import { HomeScreen } from "@/screens/home-screen";
 import { WorkScreen, WorkHistoryScreen } from "@/screens/work-screen";
@@ -23,14 +23,15 @@ import { SeanNoteNewScreen, SeanNotesList } from "@/screens/sean-notes-screen";
 import { SeanQuoteNewScreen, SeanQuotesList } from "@/screens/sean-quotes-screen";
 import { MyPhotosScreen, PhotoDetailScreen } from "@/screens/my-photos-screen";
 import { ActiveTimerBanner } from "@/components/active-timer-banner";
-import { VoiceHoursCapture } from "@/components/voice-hours-capture";
 import { Settings, ClipboardList, Flame } from "lucide-react";
+import { TeamNotesScreen } from "@/screens/team-notes-screen";
 
 function renderScreen(current: Screen): ReactNode {
   switch (current) {
     case "home": return <HomeScreen />;
-    case "work": return <><div className="p-4 pb-0"><VoiceHoursCapture /></div><WorkScreen /></>;
+    case "work": return <WorkScreen />;
     case "work-history": return <WorkHistoryScreen />;
+    case "team-notes": return <TeamNotesScreen />;
     case "service-call": return <ServiceCallScreen />;
     case "service-capacitor": return <CapacitorScreen />;
     case "service-contactor": return <ContactorScreen />;
@@ -63,6 +64,9 @@ function renderScreen(current: Screen): ReactNode {
 export default function Page() {
   const current = useNav((s) => s.current);
   const go = useNav((s) => s.go);
+  useEffect(() => {
+    if (window.location.hash.startsWith("#coilside-invite=") || window.location.hash.startsWith("#coilside-owner=")) go("team-notes");
+  }, [go]);
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-md bg-background">

@@ -1,67 +1,29 @@
-# COILSIDE Cloud Sync
+# COILSIDE Cloudflare data contract (two-person pilot)
 
-COILSIDE now supports optional Cloudflare-backed sync while keeping the browser copy as an offline cache.
+**The COILSIDE homepage stays public.** There is no mandatory email sign-in. Private messages and the owner's records require *different* high-entropy device-held tokens; the app shares Sean's token in a URL fragment and never a normal URL query.
 
-## Architecture
+## Minimal storage
 
-- **D1 (`COILSIDE_DB`)** stores the structured COILSIDE state as JSON per sync profile.
-- **R2 (`COILSIDE_PHOTOS`)** stores field-photo bytes by sync profile and photo id.
-- **localStorage + IndexedDB** remain the offline cache so the app still works with no signal.
-- A per-install **sync code** is generated in the app. Use the same code on another device to load the same cloud data.
+- A **dedicated D1 database** bound as `COILSIDE_DB` stores room-token hashes, two-person notes, and the owner's structured backup.
+- `wrangler.jsonc` intentionally contains NO invented database UUID. Provision the actual database first, then add its true ID and apply the `migrations/` files in order.
+- Owner's browser still persists all hours/notes locally. Sean's room token has **no access to owner's hours**, photos or cloud backups.
+- Equipment photo bytes stay in browser IndexedDB for now. R2 is optional and not a prerequisite for two-person notes. If added later, bind `COILSIDE_PHOTOS` and verify bytes before relying on it.
+- Cloud backup uses conditional updates: if an older device attempts to overwrite a newer cloud version, the server returns **409**, and the owner must reconcile/backup instead. Do not silently overwrite local data on first link.
+- Existing `Settings → EXPORT BACKUP (JSON)` is the independent recovery path. Export from the owner's phone before any migration or cache clearing.
 
-## Create the Cloudflare resources
+## Phone steps once storage is deployed
 
-From a machine already authenticated to the same Cloudflare account:
+1. Owner opens TEAM NOTES, taps **Start Team Notes** (generates two strong random tokens, creates a private D1 room).
+2. Owner taps **Share invitation with Sean** and sends the private link.
+3. Sean opens the invitation. It pairs his browser automatically (no signup). Each can send notes and press Refresh; open screen checks every 30 seconds.
+4. Owner taps **Copy my recovery link** and stores it securely. Anyone possessing that link has owner access.
+5. Owner verifies backed-up work hours and images before ever clearing local browser storage.
 
-```bash
-npx wrangler d1 create coilside-db
-npx wrangler r2 bucket create coilside-photos
-```
+## Boundaries and operational caveats
 
-The D1 command prints the database UUID. Keep it.
-
-## Add the real bindings to `wrangler.jsonc`
-
-Add the returned D1 UUID and the R2 bucket name to the existing config:
-
-```jsonc
-"d1_databases": [
-  {
-    "binding": "COILSIDE_DB",
-    "database_name": "coilside-db",
-    "database_id": "<REAL-D1-UUID>",
-    "migrations_dir": "migrations"
-  }
-],
-"r2_buckets": [
-  {
-    "binding": "COILSIDE_PHOTOS",
-    "bucket_name": "coilside-photos"
-  }
-]
-```
-
-Do not invent or placeholder the D1 UUID in production. The app deliberately leaves these bindings out until the real resources exist so a normal deploy cannot be broken by fake IDs.
-
-## Apply the D1 migration
-
-```bash
-npx wrangler d1 migrations apply coilside-db --remote
-```
-
-The API routes also use `CREATE TABLE IF NOT EXISTS` defensively, but the migration is the preferred source of truth.
-
-## Verify before deploy
-
-```bash
-bun run verify
-bun run cf:build
-```
-
-Then deploy through the existing Cloudflare/GitHub pipeline.
-
-## App behavior
-
-When bindings are missing, the app reports cloud sync as unavailable and continues using the browser copy. When bindings are present, it automatically syncs state after changes and uploads new field-photo blobs to R2. The cloud button in the lower-left corner shows status and lets you copy/link the sync code or force a sync.
-
-The sync code is intentionally lightweight rather than full authentication. Treat it like a casual password; anyone who knows the code and can access the app endpoint could target that profile. If this app later needs real multi-user security, add Cloudflare Access or another authentication layer before treating it as private data storage.
+- An invite link is a **persistent private access key**, not a literally single-use link. Treat it like a password; it is not printed in GitHub.
+- Team messages are received **when the app is opened/active**; no background push notification is promised.
+- Public creation is lightly rate-limited to five workspaces per Cloudflare IP address per UTC day; this is a pilot mitigation, **not** broad public abuse defense. For public distribution add provider WAF/rate limits or a private setup gate.
+- Secure data APIs fail closed if D1 is missing, if the room/token is invalid, or if Sean attempts owner-only endpoints.
+- The earlier documentation about sharing the same `x-coilside-profile` code without auth is obsolete. That code is **not** a team collaboration credential.
+- Cloudflare D1 provisioning and Worker deployment are **not implied by a GitHub merge**. Confirm live Worker binding, deployed source and two-device Android path before declaring the upgrade live.

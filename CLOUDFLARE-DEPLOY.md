@@ -1,121 +1,66 @@
-# COILSIDE — Cloudflare Workers Deployment
+# COILSIDE — Cloudflare Worker release
 
-COILSIDE is a **local-first PWA**. Cloudflare Workers only host the static assets + server-rendered HTML. **All user data stays in the browser** (localStorage). No backend, no database, no R2, no paid APIs.
+The production app runs at `https://coilside.ollie-twis.workers.dev/`.
 
-## Required files (already in this repo)
+**The currently deployed Worker is not necessarily the latest GitHub `main`.** GitHub Actions verifies source/build but does not deploy to Cloudflare. Never equate merge or passing CI with a live release.
 
-| File | Purpose |
-|------|---------|
-| `open-next.config.ts` | OpenNext Cloudflare adapter config (no R2/Images overrides — keeps deployment free) |
-| `wrangler.jsonc` | Cloudflare Workers config (worker name: `coilside`, `nodejs_compat` flag, free-plan friendly) |
-| `.gitignore` | Ignores `.open-next/` and `.wrangler/` build output |
-| `package.json` scripts | `cf:build`, `cf:preview`, `cf:deploy` |
+## Design
 
-## Local scripts
+- Next.js via OpenNext on existing Cloudflare Worker `coilside`.
+- Public app shell (current Cloudflare Access **Bypass → Everyone** for the COILSIDE app only). Do not change the shared account-wide All Workers policy.
+- Hours, field notes and equipment photos continue saving locally (localStorage + IndexedDB).
+- A **dedicated Cloudflare D1 database**, binding `COILSIDE_DB`, enables paired private team notes and optional protected owner-record sync. Sean's invitation never grants timesheet access.
+- No email signup or Cloudflare Access login flow is required for this two-person phase.
+- R2 photo cloud backup is deferred; phone/JSON backup remains essential.
+- CI checks unit regression tests, type-check, lint and Workers build. Passing source tests does NOT prove Android runtime or data saving.
 
-```bash
-# Local Next.js dev (port 3000)
-bun run dev
+## Provider preparation (write access required)
 
-# Production Next.js build (verifies app compiles cleanly)
-bun run build
+1. Create a dedicated D1 database named `coilside-team-2026`; copy its real UUID.
+2. Add to `wrangler.jsonc` only after real provision:
+   ```jsonc
+   "d1_databases": [{
+     "binding": "COILSIDE_DB",
+     "database_name": "coilside-team-2026",
+     "database_id": "<actual UUID from the Cloudflare account>",
+     "migrations_dir": "migrations"
+   }]
+   ```
+3. Apply migrations to this database only, in order:
+   ```sh
+   bunx wrangler d1 migrations apply coilside-team-2026 --remote
+   ```
+4. Confirm `COILSIDE_DB` appears as an actual runtime binding on the COILSIDE Worker after deployment. Avoid deploying a D1-dependent version without the database: team notes should report unavailable rather than erase anything.
 
-# Lint
+The connected Cloudflare integration returned **error 10000 (Authentication error)** for D1 creation on October 15, 2026. This must be resolved via provider write permissions; do not reuse unrelated databases or invent UUIDs.
+
+## Source + deployment
+
+```sh
+bun install --frozen-lockfile
+bunx prisma generate
+bunx next typegen
+bun test tests/work-hours.test.ts tests/team-pair.test.ts
+bunx tsc --noEmit
 bun run lint
-
-# Build the Cloudflare Worker bundle (runs `next build` first, then OpenNext)
 bun run cf:build
-
-# Build + run the Worker locally via `wrangler dev` (port 8787 by default)
-bun run cf:preview
-# or: bunx opennextjs-cloudflare preview
-
-# Build + deploy to Cloudflare Workers
 bun run cf:deploy
 ```
 
-## Deploy from scratch (first time)
+These commands require a prepared environment with Cloudflare Wrangler permission to deploy the existing Worker, and an actual D1 binding in `wrangler.jsonc`. Never put credentials in the repo.
 
-1. **Install the Cloudflare CLI** (already in `devDependencies`):
-   ```bash
-   bun install
-   ```
+## Release proof (Android)
 
-2. **Authenticate with Cloudflare** (one-time):
-   ```bash
-   bunx wrangler login
-   ```
-   A browser window opens — approve the OAuth flow with your Cloudflare account.
+1. **Before upgrading**, owner opens existing app → Settings → **EXPORT BACKUP (JSON)**. Confirm the downloaded file exists before deleting browser data (ideally never delete it).
+2. Deploy source, verify public URL returns app and home has **START WORK**, **TEAM NOTES**, field tools.
+3. Create and correct work entries for Tim, Farmhouse and Jesse, confirm accurate three separate Sunday–Saturday timesheets and shareable PNG.
+4. Owner opens TEAM NOTES, starts a private room, shares Sean invitation. Sean opens it on a separate phone, reads and replies; owner sees it on refresh. Verify nobody with just the public URL can read that room.
+5. Confirm the owner-only cloud API refuses Sean's token, accepts owner's token, and concurrent stale writes return 409 without overwriting.
+6. Reload app/offline, confirm local hours remain and both directions of notes persist. Check cloud D1 state exists, but never copy private records into GitHub.
+7. Only then record **PROVEN_LIVE** in COILSIDE/Harness issue; preserve Worker deployment ID, exact commit and test receipt.
 
-3. **Build + preview locally** (optional sanity check):
-   ```bash
-   bun run cf:preview
-   ```
-   Visit `http://localhost:8787`. Verify the home screen renders, Sean Factor tab works, Add Note works, etc.
+## App installed on Android
 
-4. **Deploy to production**:
-   ```bash
-   bun run cf:deploy
-   ```
-   Wrangler prints the deployed URL, e.g. `https://coilside.<your-subdomain>.workers.dev`.
+Chrome → open URL → menu → Add to Home screen. Browser/PWA cache may delay visible updates, but **do not clear storage blindly**—it contains income-critical records and pairing keys. Use the source-version and Worker deployment checks before suggesting cache resets.
 
-5. **(Optional) Custom domain**: In the Cloudflare dashboard → Workers & Pages → `coilside` → Settings → Domains & Routes → add your domain. The free `workers.dev` subdomain is fine for personal use.
-
-## Deploy from GitHub (CI/CD)
-
-Add a GitHub Actions workflow at `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy COILSIDE to Cloudflare Workers
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun run cf:build
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-```
-
-In your GitHub repo: Settings → Secrets and variables → Actions → add:
-- `CLOUDFLARE_API_TOKEN` (create in Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" template)
-- `CLOUDFLARE_ACCOUNT_ID` (found in Cloudflare dashboard sidebar)
-
-## What this deployment does NOT require
-
-- ❌ Paid Workers plan (the free plan covers ~100k requests/day — far more than a personal app needs)
-- ❌ R2 bucket (no `r2_buckets` in `wrangler.jsonc`)
-- ❌ D1 database (no backend DB — all data is in the browser)
-- ❌ KV namespace
-- ❌ Cloudflare Images (uses inline `data:` URLs for user photos, SVG illustrations for built-in references)
-- ❌ User authentication
-- ❌ Any paid third-party API
-- ❌ OpenAI / Anthropic / Gemini / Z.ai API keys
-
-The `nodejs_compat` flag is required (OpenNext uses Node built-ins like `Buffer`, `process`, etc.).
-
-## Install COILSIDE on Android (after deploy)
-
-1. Open the deployed URL (`https://coilside.<your-subdomain>.workers.dev` or your custom domain) in **Chrome** on your Android phone
-2. Use the app once — start a work timer, save a note (this installs the service worker)
-3. Tap Chrome's **⋮ menu → Add to Home screen → Add**
-4. Launch **COILSIDE** from your home screen — it opens full-screen as a standalone PWA, no browser chrome
-5. To back up your data: open the app → **Settings → EXPORT BACKUP (JSON)** — saves a `coilside-backup-YYYYMMDD-HHMM.json` file to your phone
-
-## Photo storage note
-
-Equipment photos are stored **in IndexedDB** (browser-native, ~50 MB–1 GB quota on mobile Chrome — far larger than localStorage's ~5 MB cap). Only the metadata (name, brand, model, serial, tags, callouts) lives in localStorage. The runtime auto-hydrates image bytes from IndexedDB via the `<PhotoImage>` component when photos are displayed.
-
-When you tap **EXPORT BACKUP (JSON)**, the export handler pulls the photo bytes back out of IndexedDB and inlines them as data URLs in the JSON file, so backups are self-contained. If IndexedDB is unavailable (older browser / private mode), photos fall back to being stored as data URLs directly in localStorage, and the export warns you about photo files that couldn't be included.
-
-When you tap **IMPORT BACKUP**, the handler writes the photo bytes from the JSON back into IndexedDB and strips the dataUrl from the persisted record — so the import path is symmetric with the save path.
-
-No Cloudflare R2 / Images / KV / D1 required. The Cloudflare Worker only serves the static app shell + server-rendered HTML.
+Further current scope/constraints: `COILSIDE-TEAM-UPGRADE.md` and `CLOUDFLARE-CLOUD-SYNC.md`.
