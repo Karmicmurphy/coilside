@@ -3,6 +3,10 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 export type CoilsideCloudBindings = {
   COILSIDE_DB?: any;
   COILSIDE_PHOTOS?: any;
+  COILSIDE_ACCESS_ISSUER?: string;
+  COILSIDE_ACCESS_AUD?: string;
+  COILSIDE_OWNER_EMAIL?: string;
+  COILSIDE_SEAN_EMAIL?: string;
 };
 
 export function getCoilsideCloudBindings(): CoilsideCloudBindings {
