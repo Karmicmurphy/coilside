@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authenticateTeam } from "@/lib/team-auth";
 import {
   ensureStateTable,
   getCoilsideCloudBindings,
@@ -12,6 +13,9 @@ function profileFrom(request: Request): string | null {
 }
 
 export async function GET(request: Request) {
+  const identity = await authenticateTeam(request);
+  if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
+  if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can sync time records." }, { status: 403 });
   const profile = profileFrom(request);
   if (!profile) {
     return NextResponse.json({ error: "Invalid or missing sync profile." }, { status: 400 });
@@ -48,6 +52,9 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const identity = await authenticateTeam(request);
+  if (!identity.ok) return NextResponse.json({ error: identity.error }, { status: identity.status });
+  if (identity.role !== "owner") return NextResponse.json({ error: "Only the owner can sync time records." }, { status: 403 });
   const profile = profileFrom(request);
   if (!profile) {
     return NextResponse.json({ error: "Invalid or missing sync profile." }, { status: 400 });
