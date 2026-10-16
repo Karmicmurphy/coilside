@@ -37,7 +37,7 @@ jobs:
         run: bunx next typegen
 
       - name: Work-hours regression tests
-        run: bun test tests/work-hours.test.ts
+        run: bun test tests/work-hours.test.ts tests/team-pair.test.ts
 
       - name: Type-check
         run: bunx tsc --noEmit
