@@ -1,54 +1,46 @@
-# COILSIDE: Jesse Timesheets + Private Team Notes + Cloudflare Storage
+# COILSIDE — two-person field app upgrade: current authority
 
-Status: CANDIDATE — not deployed; production data and existing Worker unchanged.
+**Evidence state:** CANDIDATE / PROVEN_IN_TEST for repository checks when green; NOT DEPLOYED and NOT PROVEN_LIVE. Owner correction received 2026-10-15. This is a public GitHub repo: no secrets or raw private notes here.
 
-## Owner experience
+## Locked owner outcome — do not reinterpret
 
-- **Work Hours** offers three independent payroll/job contexts: Tim Johnson Heating & Cooling, Sean's Farmhouse, and Jesse Johnson — Independent Projects.
-- Each context has its own weekly view, edits, zero-hour days, voice entry, and shareable PNG. Historical Tim/Sean entries are preserved; the new employer key is `jesse`.
-- **Team Notes** is a private, two-person in-app conversation between the owner and Sean. Each person can send a note; the other can read it by opening the app (and the open screen checks about every 30 seconds). Read status is saved. This is not push/SMS/email delivery. The existing **Sean Factor** personal archive remains separate.
+- **One owner + one collaborator** use the app: Randy and Sean.
+- The **application homepage remains public** for this stage. There is **no Cloudflare Access sign-in or email identity enrollment** now.
+- **Tim Johnson** is an hours/pay category only, **Sean's Farmhouse** is another, and **Jesse Johnson — Independent Projects** is a third, independent hours/pay category. Neither Tim nor Jesse is being invited as a separate app user.
+- Owner and Sean can leave and receive notes on separate phones with recognizable delivery, without requiring a normal sign-in flow. The legacy personal Sean Factor archive is **not** their shared inbox.
+- Primary use is **Android, touch, short attention/tap budget, intermittent connectivity**. Simple visible UI outranks new infrastructure.
+- Saved hours are income-critical. Existing browser localStorage and IndexedDB data must remain recoverable; backup before migration.
 
-## Privacy gate — absolutely required before live data bindings
+## Audit findings: keep, change, cut, defer
 
-The current deployed COILSIDE Worker has an **Everyone/Bypass** Access policy. Do not connect a database or photo bucket to that public deployment: the previous `/api/cloud` code accepted only a shareable profile code.
+| Decision | Mechanism | Reason |
+|---|---|---|
+| **KEEP** | Existing Next.js/OpenNext Worker, local-first timesheets, Sunday–Saturday views, voice entry, downloadable JSON backup | Already deployed; owner's real use case |
+| **KEEP** | Three independent work categories and PNG timesheet share | No new user accounts required |
+| **KEEP** | Existing D1 route surface and proposed dedicated shared-notes table as reusable foundations | Minimal durable backend candidate |
+| **FIX** | Updated timesheet editing total from patched start/end values + regression tests | An edited punch must not show old hours |
+| **FIX** | Remove duplicated voice entry on Work Hours | Already fixed on candidate |
+| **REVISE** | Candidate `src/lib/team-auth.ts` and email/JWT gating in `/api/team/notes`, `/api/cloud`, `/api/cloud/photos` | **Wrong user requirement**. This candidate currently **cannot be deployed while leaving the Worker public**. Needs replacement before merge |
+| **TEST** | A one-time two-device pairing/invite code, no email signup, separate per-person device role keys stored on devices, least-privilege server access | Candidate only. An entirely unguarded public notes API would let strangers read/write/impersonate. Owner has not approved a particular pairing implementation |
+| **TEST** | Full-state cloud sync and offline reload with two devices | Current state sync is last-write-wins oriented; test backup/merge behavior before enabling |
+| **DEFER** | Formal email logins, teams/users administration, push notifications, role hierarchy | Not requested; increases friction |
+| **DEFER** | Cloudflare R2 photo syncing | Only add when cross-device photos become a present user need. Dedicated D1 is higher priority |
+| **CUT** | More frameworks, Workers, extra business entities as people, separate FRIDAY/Foundry involvement | Not part of the job |
 
-The candidate secures **all shared D1/R2 endpoints**, including existing `/api/cloud` and `/api/cloud/photos/*`, with cryptographic verification of the Cloudflare Access JWT from the `Cf-Access-Jwt-Assertion` header. Simply supplying an email, caller-owned HTTP header, or a copied profile code does not confer access. Access must actually protect this Worker and issue a valid signed JWT. The server checks the JWT signature against the Access issuer's public keys, issuer, audience, expiry, and email allowlist.
+## Release block and known evidence
 
-Current Access bypass MUST be replaced by a **Worker-only Allow** policy for exactly the owner and Sean, **after** both addresses are confirmed. The owner retains the right to approve the access change; other Workers stay untouched. Cloudflare Access must be verified in the real phone browser before activating D1/R2.
+1. **Current deployed COILSIDE is public and homepage reachable.** The Cloudflare Worker is not deployed from this branch.
+2. Existing production Worker currently exposes only `ASSETS`; **no COILSIDE D1/R2** binding. Attempt to create fresh D1/R2 using connected Cloudflare tooling returned **authentication error 10000**. No new resource confirmed created.
+3. GitHub PR: https://github.com/Karmicmurphy/coilside/pull/5 (DRAFT). The initial branch CI passed TS, lint and Cloudflare build. Work-edit tests added later; verify the latest run before calling new patches test-proven.
+4. **Hard STOP:** The current branch's Cloudflare Access JWT sign-in implementation **conflicts with locked owner requirements**. Do not merge, deploy, attach D1 or replace the public Worker policy until the no-email two-device design and its data boundary are agreed, implemented and checked.
+5. **Backup FIRST:** Existing phone app → Settings → Export Backup (JSON); do not clear app data or switch sync profiles without verifying restoration.
+6. **Phone proof:** owner saves and corrects Tim/Sean/Jesse hours, checks accurate totals and PNG share, goes offline/reloads, restores hours; Sean receives a note on his Android and replies to the correct conversation, stranger without the invite cannot impersonate/read the channel. No assertion of full success until that path passes.
 
-Cloudflare Worker environment variables to configure (no secrets/email values in GitHub):
+## External machine/harness issue handoff (not runtime activation)
 
-| Binding | Meaning |
-|---|---|
-| `COILSIDE_ACCESS_ISSUER` | HTTPS Access team issuer, e.g. `https://your-team.cloudflareaccess.com` |
-| `COILSIDE_ACCESS_AUD` | Exact JWT audience of the COILSIDE Access application |
-| `COILSIDE_OWNER_EMAIL` | Owner's sign-in email |
-| `COILSIDE_SEAN_EMAIL` | Sean's confirmed sign-in email |
-| `COILSIDE_DB` | Dedicated Cloudflare D1 database for owner's state + shared notes |
-| `COILSIDE_PHOTOS` | Dedicated Cloudflare R2 bucket for owner's field photos |
+- Canonical generalized incident: https://github.com/Karmicmurphy/Harness-card/issues/26
+- FRIDAY/Workshop read-only intake pointer: https://github.com/Karmicmurphy/Ollie_Twis_Holo_workshop/issues/27
 
-Missing Access config returns 503 and leaves local data intact. Missing/invalid JWT returns 401; other emails return 403. Without D1, the team screen stays in a clearly blocked state.
+COILSIDE is a separate app. Issues and PRs are durable evidence; they do not cause the FRIDAY runtime to load them automatically, authorize production, or unblock Cloudflare provider permissions.
 
-## Database/storage provisioning
-
-1. Create a new dedicated D1 database and R2 bucket (do NOT reuse another project's resources). The suggested names are `coilside-team-2026` and `coilside-field-photos-2026`.
-2. Copy the real D1 database UUID into `wrangler.jsonc` for `COILSIDE_DB`; add `COILSIDE_PHOTOS` R2 binding. Never commit fabricated IDs.
-3. Apply migrations `0001_coilside_cloud.sql` and `0002_team_notes.sql` to **that database only**. The API also has safe `CREATE TABLE IF NOT EXISTS` guards.
-4. Configure the identity bindings and the **specific** COILSIDE Access application, preserving protections on the All Workers application.
-5. Back up existing Android records with **Settings → Export Backup (JSON)** before touching browser storage.
-6. Build/test and deploy only after owner approval and authentication checks. On the owner's existing phone, sign in and let the first authenticated cloud sync upload its local data. Validate records and photos before linking another device.
-7. Prove the owner can write/receive a team note, Sean can reply on a separate signed-in device, neither identity can read other users' state, and untrusted requests are denied. Confirm Jesse's hours remain separate and existing Tim/Sean hours are unchanged.
-
-**Do not enable database bindings first while the current public bypass is active.** Do not silently merge or deploy this candidate.
-
-## Current connection limitation
-
-During candidate work on 2026-10-15, the connected Cloudflare tool successfully listed existing databases and buckets but **POST create D1/R2 was rejected with authentication error 10000**. Neither resource was confirmed created. Zero Trust/Access API writes were previously denied separately. Cloudflare account setup must be completed with a credential that has those specific write privileges or through the dashboard before live activation.
-
-## Other known repair
-
-Repository CI type-check had been failing on `PrismaClient` import due to the legacy Prisma client not being generated. CI now generates Prisma before type-check. This does not migrate or rewrite any existing database. Confirm the updated CI workflow passes before considering deployment.
-
-## Why sync requires separate owner sign-in
-
-The old per-install sync code is retained for syncing **one owner's own devices**, never used as a Sean identity or permission. Team Notes uses two named/verified people and its own D1 table. Jesse is a separate work/pay entity; he is **not** automatically granted a login. Add a third login only if explicitly requested.
+**Next bounded engineering decision:** Define the **lowest-friction two-device notes boundary** that works on a public Worker without formal sign-in; then revise only the candidate notes/auth cloud endpoints and verify on two phones. Avoid full app redesign.
