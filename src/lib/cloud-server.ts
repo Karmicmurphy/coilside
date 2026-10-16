@@ -3,10 +3,6 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 export type CoilsideCloudBindings = {
   COILSIDE_DB?: any;
   COILSIDE_PHOTOS?: any;
-  COILSIDE_ACCESS_ISSUER?: string;
-  COILSIDE_ACCESS_AUD?: string;
-  COILSIDE_OWNER_EMAIL?: string;
-  COILSIDE_SEAN_EMAIL?: string;
 };
 
 export function getCoilsideCloudBindings(): CoilsideCloudBindings {
@@ -18,13 +14,6 @@ export function getCoilsideCloudBindings(): CoilsideCloudBindings {
     // unavailable instead of crashing.
     return {};
   }
-}
-
-export function normalizeCloudProfile(value: string | null): string | null {
-  if (!value) return null;
-  const profile = value.trim();
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(profile)) return null;
-  return profile;
 }
 
 export async function ensureStateTable(db: any): Promise<void> {
