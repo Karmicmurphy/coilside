@@ -9,6 +9,7 @@ export type Screen =
   | "home"
   | "work"
   | "work-history"
+  | "team-notes"
   | "service-call"
   | "service-capacitor"
   | "service-contactor"
