@@ -16,7 +16,7 @@
 // Migration: existing persisted state is forward-compatible. Missing newer
 // fields fall back to safe defaults via the store's `merge` option.
 
-export type Employer = "tim" | "sean";
+export type Employer = "tim" | "sean" | "jesse";
 
 export interface WorkEntry {
   id: string;
