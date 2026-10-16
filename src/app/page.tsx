@@ -24,12 +24,14 @@ import { SeanQuoteNewScreen, SeanQuotesList } from "@/screens/sean-quotes-screen
 import { MyPhotosScreen, PhotoDetailScreen } from "@/screens/my-photos-screen";
 import { ActiveTimerBanner } from "@/components/active-timer-banner";
 import { Settings, ClipboardList, Flame } from "lucide-react";
+import { TeamNotesScreen } from "@/screens/team-notes-screen";
 
 function renderScreen(current: Screen): ReactNode {
   switch (current) {
     case "home": return <HomeScreen />;
     case "work": return <WorkScreen />;
     case "work-history": return <WorkHistoryScreen />;
+    case "team-notes": return <TeamNotesScreen />;
     case "service-call": return <ServiceCallScreen />;
     case "service-capacitor": return <CapacitorScreen />;
     case "service-contactor": return <ContactorScreen />;
