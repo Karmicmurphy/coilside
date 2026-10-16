@@ -23,13 +23,12 @@ import { SeanNoteNewScreen, SeanNotesList } from "@/screens/sean-notes-screen";
 import { SeanQuoteNewScreen, SeanQuotesList } from "@/screens/sean-quotes-screen";
 import { MyPhotosScreen, PhotoDetailScreen } from "@/screens/my-photos-screen";
 import { ActiveTimerBanner } from "@/components/active-timer-banner";
-import { VoiceHoursCapture } from "@/components/voice-hours-capture";
 import { Settings, ClipboardList, Flame } from "lucide-react";
 
 function renderScreen(current: Screen): ReactNode {
   switch (current) {
     case "home": return <HomeScreen />;
-    case "work": return <><div className="p-4 pb-0"><VoiceHoursCapture /></div><WorkScreen /></>;
+    case "work": return <WorkScreen />;
     case "work-history": return <WorkHistoryScreen />;
     case "service-call": return <ServiceCallScreen />;
     case "service-capacitor": return <CapacitorScreen />;
