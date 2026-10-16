@@ -1,46 +1,49 @@
-# COILSIDE — two-person field app upgrade: current authority
+# COILSIDE — two-person field app upgrade
 
-**Evidence state:** CANDIDATE / PROVEN_IN_TEST for repository checks when green; NOT DEPLOYED and NOT PROVEN_LIVE. Owner correction received 2026-10-15. This is a public GitHub repo: no secrets or raw private notes here.
+**Evidence:** Code candidate, not proof of live Android use. This repo is public and contains no private messages, phone records or keys.
 
-## Locked owner outcome — do not reinterpret
+## Locked owner outcome
 
-- **One owner + one collaborator** use the app: Randy and Sean.
-- The **application homepage remains public** for this stage. There is **no Cloudflare Access sign-in or email identity enrollment** now.
-- **Tim Johnson** is an hours/pay category only, **Sean's Farmhouse** is another, and **Jesse Johnson — Independent Projects** is a third, independent hours/pay category. Neither Tim nor Jesse is being invited as a separate app user.
-- Owner and Sean can leave and receive notes on separate phones with recognizable delivery, without requiring a normal sign-in flow. The legacy personal Sean Factor archive is **not** their shared inbox.
-- Primary use is **Android, touch, short attention/tap budget, intermittent connectivity**. Simple visible UI outranks new infrastructure.
-- Saved hours are income-critical. Existing browser localStorage and IndexedDB data must remain recoverable; backup before migration.
+- Public COILSIDE app, **no email signup, no sign-in screen**.
+- Only Randy and Sean use two-person shared notes.
+- Tim Johnson / Sean's Farmhouse / Jesse Johnson are **separate work/pay timesheets**, not three app users.
+- Personal Sean Factor archive remains separate.
+- Android phone, touch controls, offline local records and minimal steps are the governing use environment.
 
-## Audit findings: keep, change, cut, defer
+## Delivered in this candidate
 
-| Decision | Mechanism | Reason |
-|---|---|---|
-| **KEEP** | Existing Next.js/OpenNext Worker, local-first timesheets, Sunday–Saturday views, voice entry, downloadable JSON backup | Already deployed; owner's real use case |
-| **KEEP** | Three independent work categories and PNG timesheet share | No new user accounts required |
-| **KEEP** | Existing D1 route surface and proposed dedicated shared-notes table as reusable foundations | Minimal durable backend candidate |
-| **FIX** | Updated timesheet editing total from patched start/end values + regression tests | An edited punch must not show old hours |
-| **FIX** | Remove duplicated voice entry on Work Hours | Already fixed on candidate |
-| **REVISE** | Candidate `src/lib/team-auth.ts` and email/JWT gating in `/api/team/notes`, `/api/cloud`, `/api/cloud/photos` | **Wrong user requirement**. This candidate currently **cannot be deployed while leaving the Worker public**. Needs replacement before merge |
-| **TEST** | A one-time two-device pairing/invite code, no email signup, separate per-person device role keys stored on devices, least-privilege server access | Candidate only. An entirely unguarded public notes API would let strangers read/write/impersonate. Owner has not approved a particular pairing implementation |
-| **TEST** | Full-state cloud sync and offline reload with two devices | Current state sync is last-write-wins oriented; test backup/merge behavior before enabling |
-| **DEFER** | Formal email logins, teams/users administration, push notifications, role hierarchy | Not requested; increases friction |
-| **DEFER** | Cloudflare R2 photo syncing | Only add when cross-device photos become a present user need. Dedicated D1 is higher priority |
-| **CUT** | More frameworks, Workers, extra business entities as people, separate FRIDAY/Foundry involvement | Not part of the job |
+1. Three separate Tim / Farmhouse / Jesse manual and voice-entry timesheets, Sunday–Saturday totals, and shareable PNGs.
+2. Fixed duplicated voice controls, fixed edited start/end hour calculation, and added a regression suite.
+3. **Team Notes**: one owner tap to create a cloud-backed room; one Sean invitation via a fragment-only private link; private device tokens persist in localStorage; no email or login page. Sean's token can read/write the room's notes but cannot read or change owner's timesheets. A read timestamp records receipt while the screen is open. Polls every 30 seconds and on focus, not background push notifications.
+4. SHA-256 token digests and room-separated notes live in Cloudflare D1; only the two tokens can access that room. The invite token is stored on the owner's phone for re-sharing. The recovery link grants full owner access: keep it private.
+5. Optional owner's D1 time-record backup now requires **owner token**, not old casual sync code. It uses optimistic compare-and-set timestamps to reject another-device overwrites (409). The app refuses to import an existing cloud snapshot over unsynced local records without an explicit backup/reconciliation.
+6. Existing Android local storage remains authoritative until a successful remote upload. Photo bytes remain in IndexedDB; R2 cloud photo replication is intentionally deferred. The old Settings → Export Backup (JSON) remains the independent recovery method.
+7. Existing Cloudflare Access **Everyone / Bypass** policy can remain on the Worker. The public UI is intentionally separate from token-guarded APIs.
 
-## Release block and known evidence
+## Provision/deploy gate
 
-1. **Current deployed COILSIDE is public and homepage reachable.** The Cloudflare Worker is not deployed from this branch.
-2. Existing production Worker currently exposes only `ASSETS`; **no COILSIDE D1/R2** binding. Attempt to create fresh D1/R2 using connected Cloudflare tooling returned **authentication error 10000**. No new resource confirmed created.
-3. GitHub PR: https://github.com/Karmicmurphy/coilside/pull/5 (DRAFT). The initial branch CI passed TS, lint and Cloudflare build. Work-edit tests added later; verify the latest run before calling new patches test-proven.
-4. **Hard STOP:** The current branch's Cloudflare Access JWT sign-in implementation **conflicts with locked owner requirements**. Do not merge, deploy, attach D1 or replace the public Worker policy until the no-email two-device design and its data boundary are agreed, implemented and checked.
-5. **Backup FIRST:** Existing phone app → Settings → Export Backup (JSON); do not clear app data or switch sync profiles without verifying restoration.
-6. **Phone proof:** owner saves and corrects Tim/Sean/Jesse hours, checks accurate totals and PNG share, goes offline/reloads, restores hours; Sean receives a note on his Android and replies to the correct conversation, stranger without the invite cannot impersonate/read the channel. No assertion of full success until that path passes.
+**As of October 15, 2026 the connected Cloudflare API returned error 10000 when asked to create a new D1 database/R2 bucket. No D1 was confirmed provisioned.**
 
-## External machine/harness issue handoff (not runtime activation)
+To activate, the owner needs a Cloudflare connection that can create/bind D1 to the existing `coilside` Worker or a local/cloud CI Wrangler credential with those permissions.
 
-- Canonical generalized incident: https://github.com/Karmicmurphy/Harness-card/issues/26
-- FRIDAY/Workshop read-only intake pointer: https://github.com/Karmicmurphy/Ollie_Twis_Holo_workshop/issues/27
+Minimal required deployment:
 
-COILSIDE is a separate app. Issues and PRs are durable evidence; they do not cause the FRIDAY runtime to load them automatically, authorize production, or unblock Cloudflare provider permissions.
+1. Create dedicated D1 `coilside-team-2026` (or an equivalent dedicated COILSIDE database), record its actual UUID.
+2. Add D1 binding `COILSIDE_DB` to `wrangler.jsonc` using that UUID; **never add a fake UUID**.
+3. Apply migrations `0001_coilside_cloud.sql`, `0002_team_notes.sql`, and `0003_team_rooms.sql` against that dedicated database (fresh schema only).
+4. Export the owner's existing JSON backup first. Deploy fresh build from the reviewed `main` commit. Do not clear the app's local data, uninstall PWA, or change URL.
+5. On owner's Android: start Team Notes (the first successful D1 creation), share Sean invite, send a note. Open invite on Sean's phone, reply, verify both read it. Confirm owner hours cannot be accessed with Sean token.
+6. On owner's phone: save Tim/Farmhouse/Jesse hours, correct an entry, reload, check weekly totals/PNG and backup recovery; verify D1 sync and 409 conflict denial with another owner device; verify private endpoints return 401/403 when unpaired.
+7. Only then record `PROVEN_LIVE`. Green CI or a successful homepage load is not sufficient.
 
-**Next bounded engineering decision:** Define the **lowest-friction two-device notes boundary** that works on a public Worker without formal sign-in; then revise only the candidate notes/auth cloud endpoints and verify on two phones. Avoid full app redesign.
+### Cost/abuse tradeoff
+
+Creating team rooms is available to any public visitor with an unpaired browser, so an attacker could attempt many empty rooms and consume D1 requests. Before widespread public distribution, apply Cloudflare rate limiting/WAF or add an owner-only setup gate. This is a **two-person limited pilot**, not public self-service hosting.
+
+### Authority / stop
+
+- Incident: https://github.com/Karmicmurphy/Harness-card/issues/26
+- FRIDAY read-only intake: https://github.com/Karmicmurphy/Ollie_Twis_Holo_workshop/issues/27
+- COILSIDE candidate: https://github.com/Karmicmurphy/coilside/pull/5
+
+This is a separate COILSIDE app, not Foundation's FRIDAY phone-job path. Don't touch machine authority pins or related production. Release remains **BLOCKED** at Cloudflare D1 provisioning and live Android proof until done.
