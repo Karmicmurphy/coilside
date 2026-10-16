@@ -18,6 +18,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid pairing codes." }, { status: 400 });
   try {
     await ensureRoomsTable(db);
+    // Public app, not public unlimited room creation: cap anonymous setups
+    // per connecting IP per UTC day. Store a daily digest, not the raw IP.
+    await db.prepare(`CREATE TABLE IF NOT EXISTS coilside_room_limits (
+      day TEXT NOT NULL, ip_hash TEXT NOT NULL, used INTEGER NOT NULL,
+      PRIMARY KEY(day,ip_hash)
+    )`).run();
+    const day = new Date().toISOString().slice(0, 10);
+    const ipHash = await tokenDigest(`${day}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
+    const limit = await db.prepare(`INSERT INTO coilside_room_limits(day, ip_hash, used) VALUES(?,?,1)
+      ON CONFLICT(day, ip_hash) DO UPDATE SET used=used+1 WHERE used < 5`)
+      .bind(day, ipHash).run();
+    if ((limit.meta?.changes ?? 0) !== 1)
+      return NextResponse.json({ error: "Too many new team rooms today. Try again tomorrow." }, { status: 429 });
     const room = crypto.randomUUID();
     const [ownerHash, seanHash] = await Promise.all([tokenDigest(data.ownerToken),tokenDigest(data.seanToken)]);
     await db.prepare("INSERT INTO coilside_rooms(id, owner_hash, sean_hash, created_at) VALUES(?, ?, ?, ?)")
