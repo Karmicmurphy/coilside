@@ -30,6 +30,7 @@ import type {
   WorkEntry,
 } from "./types";
 import { isoDate, uid, weekKey } from "./utils";
+import { recalculateEditedWorkHours } from "./work-hours";
 
 interface StoreActions {
   // Work timer / entries
@@ -173,7 +174,7 @@ export const useCoilsideStore = create<Store>()(
       updateWorkEntry: (id, patch) =>
         set((s) => ({
           workEntries: s.workEntries.map((w) =>
-            w.id === id ? { ...w, ...patch, totalHours: computeTotalHours(w.startAt, w.stopAt, patch.breakMinutes ?? w.breakMinutes) } : w
+            w.id === id ? { ...w, ...patch, totalHours: recalculateEditedWorkHours(w, patch) } : w
           ),
         })),
       deleteWorkEntry: (id) =>
