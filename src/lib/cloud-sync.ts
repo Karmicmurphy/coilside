@@ -3,6 +3,7 @@
 import { useCoilsideStore } from "@/lib/store";
 import type { CoilsideState, EquipmentPhoto } from "@/lib/types";
 import { getPhotoBlob, savePhotoBlob } from "@/lib/photo-blobs";
+import { pairedHeaders, readPair, PAIR_CHANGED } from "@/lib/team-pair-client";
 
 const PROFILE_KEY = "coilside:cloud-profile";
 const LAST_SYNC_KEY = "coilside:cloud-last-sync";
@@ -41,67 +42,38 @@ export function getCloudSyncStatus() {
   return status;
 }
 
-function newProfileId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `coilside-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+function cloudHeaders(extra?: Record<string, string>): Record<string, string> {
+  return pairedHeaders(extra);
 }
-
-export function getCloudProfile(): string {
-  if (typeof window === "undefined") return "";
-  let value = localStorage.getItem(PROFILE_KEY)?.trim();
-  if (!value || !/^[A-Za-z0-9_-]{8,80}$/.test(value)) {
-    value = newProfileId();
-    localStorage.setItem(PROFILE_KEY, value);
-  }
-  return value;
-}
-
-export function setCloudProfile(profile: string): boolean {
-  if (typeof window === "undefined") return false;
-  const value = profile.trim();
-  if (!/^[A-Za-z0-9_-]{8,80}$/.test(value)) return false;
-  localStorage.setItem(PROFILE_KEY, value);
-  localStorage.removeItem(LAST_SYNC_KEY);
-  localStorage.removeItem(UPLOADED_PHOTOS_KEY);
-  localStorage.setItem(DIRTY_KEY, "0");
-  void initializeCloudSync(true);
-  return true;
-}
-
-function cloudHeaders(extra?: HeadersInit): HeadersInit {
-  return {
-    "x-coilside-profile": getCloudProfile(),
-    ...extra,
-  };
+function scope(key: string): string {
+  return `${key}:${readPair()?.room ?? "local"}`;
 }
 
 function getLastSync() {
   if (typeof window === "undefined") return 0;
-  return Number(localStorage.getItem(LAST_SYNC_KEY) || 0) || 0;
+  return Number(localStorage.getItem(scope(LAST_SYNC_KEY)) || 0) || 0;
 }
 
 function setLastSync(value: number) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(LAST_SYNC_KEY, String(value));
-  localStorage.setItem(DIRTY_KEY, "0");
+  localStorage.setItem(scope(LAST_SYNC_KEY), String(value));
+  localStorage.setItem(scope(DIRTY_KEY), "0");
 }
 
 function isDirty() {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(DIRTY_KEY) === "1";
+  return localStorage.getItem(scope(DIRTY_KEY)) === "1";
 }
 
 function markDirty() {
   if (typeof window === "undefined" || applyingRemote) return;
-  localStorage.setItem(DIRTY_KEY, "1");
+  localStorage.setItem(scope(DIRTY_KEY), "1");
 }
 
 function uploadedPhotoIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    return new Set(JSON.parse(localStorage.getItem(UPLOADED_PHOTOS_KEY) || "[]"));
+    return new Set(JSON.parse(localStorage.getItem(scope(UPLOADED_PHOTOS_KEY)) || "[]"));
   } catch {
     return new Set();
   }
@@ -109,7 +81,7 @@ function uploadedPhotoIds(): Set<string> {
 
 function saveUploadedPhotoIds(ids: Set<string>) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(UPLOADED_PHOTOS_KEY, JSON.stringify([...ids]));
+  localStorage.setItem(scope(UPLOADED_PHOTOS_KEY), JSON.stringify([...ids]));
 }
 
 function stripPhotoData(state: CoilsideState): CoilsideState {
@@ -190,6 +162,10 @@ async function hydrateRemotePhotos(state: CoilsideState) {
 
 export async function pushCloudState(): Promise<boolean> {
   if (syncing || typeof window === "undefined") return false;
+  if (readPair()?.role !== "owner") {
+    emit({ phase: "unavailable", message: "Start Team Notes on this phone to enable private cloud saving." });
+    return false;
+  }
   syncing = true;
   emit({ phase: "syncing", message: "Saving COILSIDE to Cloudflare…", lastSyncedAt: getLastSync() });
   try {
@@ -197,12 +173,13 @@ export async function pushCloudState(): Promise<boolean> {
     const response = await fetch("/api/cloud", {
       method: "PUT",
       headers: cloudHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ state }),
+      body: JSON.stringify({ state, baseUpdatedAt: getLastSync() }),
     });
     if (response.status === 503) {
-      emit({ phase: "unavailable", message: "Cloud sync is ready in the app, but D1/R2 bindings are not connected yet." });
+      emit({ phase: "unavailable", message: "Cloudflare records database is not connected yet." });
       return false;
     }
+    if (response.status === 409) throw new Error("Cloud conflict: newer records already exist. Nothing was overwritten. Export Backup before retrying.");
     if (!response.ok) throw new Error(`Cloud state save failed (${response.status}).`);
     const body = (await response.json()) as { updatedAt?: number };
     await uploadMissingPhotos(useCoilsideStore.getState().exportState());
@@ -236,6 +213,10 @@ async function pullCloudState(remote: CoilsideState, updatedAt: number) {
 
 export async function initializeCloudSync(force = false): Promise<void> {
   if (typeof window === "undefined") return;
+  if (readPair()?.role !== "owner") {
+    emit({ phase: "unavailable", message: "Cloud backup is off until you start the private team workspace." });
+    return;
+  }
   if (syncing && !force) return;
   emit({ phase: "checking", message: "Checking Cloudflare sync…", lastSyncedAt: getLastSync() });
   try {
@@ -244,7 +225,7 @@ export async function initializeCloudSync(force = false): Promise<void> {
       cache: "no-store",
     });
     if (response.status === 503) {
-      emit({ phase: "unavailable", message: "Cloud sync is ready in the app, but D1/R2 bindings are not connected yet." });
+      emit({ phase: "unavailable", message: "Cloudflare records database is not connected yet." });
       return;
     }
     if (!response.ok) throw new Error(`Cloud sync check failed (${response.status}).`);
@@ -261,6 +242,14 @@ export async function initializeCloudSync(force = false): Promise<void> {
     }
 
     const lastSync = getLastSync();
+    const local = useCoilsideStore.getState().exportState();
+    if (!lastSync && (
+      local.workEntries.length || local.notes.length || local.seanNotes.length ||
+      local.installs.length || local.equipmentPhotos.length
+    )) {
+      emit({ phase: "error", message: "Existing phone records detected and this cloud workspace already has records. Export Backup first; automatic overwrite was stopped." });
+      return;
+    }
     if (isDirty() && lastSync > 0) {
       await pushCloudState();
       return;
@@ -300,11 +289,13 @@ export function startAutomaticCloudSync(): () => void {
     });
     const onOnline = () => void initializeCloudSync(true);
     window.addEventListener("online", onOnline);
+    window.addEventListener(PAIR_CHANGED, onOnline);
     return () => {
       unsubscribe?.();
       unsubscribe = null;
       if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("online", onOnline);
+      window.removeEventListener(PAIR_CHANGED, onOnline);
       started = false;
     };
   }
