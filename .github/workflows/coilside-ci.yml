@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Generate Prisma client for legacy type-check
+        run: bunx prisma generate
+
       - name: Generate Next.js route types
         run: bunx next typegen
 
