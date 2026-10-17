@@ -18,6 +18,22 @@
 
 export type Employer = "tim" | "sean" | "jesse";
 
+export interface WorkEntryRevision {
+  at: number; // When a correction or void was recorded
+  before: {
+    date: string;
+    startAt: number;
+    stopAt: number;
+    breakMinutes: number;
+    totalHours: number;
+    note: string;
+    workSite?: string;
+    voidedAt?: number;
+  };
+}
+
+export type WorkPhotoStage = "before" | "progress" | "after";
+
 export interface WorkEntry {
   id: string;
   employer: Employer;
@@ -27,6 +43,9 @@ export interface WorkEntry {
   breakMinutes: number;  // deducted break time
   totalHours: number;   // computed (stopAt - startAt - break) in hours
   note: string;
+  workSite?: string;    // Optional job/property label, not a location tracking field
+  revisions?: WorkEntryRevision[]; // Original values retained on corrections
+  voidedAt?: number;    // A void is recorded, never silently deleted
 }
 
 // ----- Notes (general field notes; original V1 type kept intact) -----
@@ -197,6 +216,10 @@ export interface PhotoCallout {
 export type PhotoSource = "camera" | "upload";
 
 export interface EquipmentPhoto {
+  /** Optional work-receipt association; absent for ordinary equipment library photos. */
+  workEmployer?: Employer;
+  workDate?: string;       // ISO local date, matches a day's timesheet
+  workStage?: WorkPhotoStage;
   id: string;
   /** When the photo record was saved into COILSIDE. */
   createdAt: number;
