@@ -1,4 +1,4 @@
-import type { WorkEntry, WorkEntryRevision } from "./types";
+import type { EquipmentPhoto, WorkEntry, WorkEntryRevision } from "./types";
 
 /**
  * The edited fields, not the original shift, are authoritative when
@@ -63,4 +63,9 @@ export function workDayEntries(entries: WorkEntry[], employer: WorkEntry["employ
 
 export function workDayTotal(entries: WorkEntry[], employer: WorkEntry["employer"], day: string): number {
   return workDayEntries(entries, employer, day).reduce((sum, entry) => sum + entry.totalHours, 0);
+}
+
+/** A work photo never appears on another employer's receipt, even on the same date. */
+export function workDayPhotos(photos: EquipmentPhoto[], employer: WorkEntry["employer"], day: string): EquipmentPhoto[] {
+  return photos.filter((photo) => photo.workEmployer === employer && photo.workDate === day);
 }
