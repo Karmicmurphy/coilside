@@ -137,6 +137,7 @@ async function buildTimesheetPng(employer: Employer, entries: WorkEntry[], selec
     }
     ctx.textAlign = "right"; ctx.fillStyle = "#ffd12f"; ctx.font = "700 34px Arial, sans-serif";
     ctx.fillText(entry.totalHours.toFixed(2), width - padding, y + 68);
+    if ((entry.extraMinutes || 0) > 0) { ctx.font = "20px Arial, sans-serif"; ctx.fillStyle = "#20bdf3"; ctx.fillText(`+${entry.extraMinutes}m extra`, width - padding, y + 102); }
   });
 
   const footerY = tableTop + tableHeaderHeight + Math.max(sorted.length, 1) * rowHeight;
