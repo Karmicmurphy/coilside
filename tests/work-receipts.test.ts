@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { reviseWorkEntry, workDayEntries, workDayTotal, workDayPhotos } from "../src/lib/work-hours";
+import { reviseWorkEntry, workDayEntries, workDayTotal, workDayPhotos, recalculateEditedWorkHours } from "../src/lib/work-hours";
 import type { EquipmentPhoto, WorkEntry } from "../src/lib/types";
 
 const morning: WorkEntry = {
@@ -36,6 +36,15 @@ describe("COILSIDE daily work receipts", () => {
     expect(changed.revisions?.[0].before.note).toBe("First work period");
     expect(changed.revisions?.[0].at).toBe(123);
     expect(morning.revisions).toBeUndefined();
+  });
+  test("documents an omitted 30 minutes for a 5.00-hour daily total without changing clocks", () => {
+    const corrected = reviseWorkEntry(afternoon, { extraMinutes: 30, note: "30 minutes of previously unrecorded work" }, 300);
+    expect(corrected.startAt).toBe(afternoon.startAt);
+    expect(corrected.stopAt).toBe(afternoon.stopAt);
+    expect(corrected.totalHours).toBe(3.25);
+    expect(workDayTotal([morning, corrected], "sean", "2026-10-17")).toBe(5);
+    expect(corrected.revisions?.[0].before.extraMinutes).toBeUndefined();
+    expect(recalculateEditedWorkHours(corrected, { extraMinutes: 0 })).toBe(2.75);
   });
   test("no-op edits do not generate fake changes", () => {
     expect(reviseWorkEntry(morning, { note: morning.note })).toBe(morning);

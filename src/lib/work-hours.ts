@@ -5,13 +5,14 @@ import type { EquipmentPhoto, WorkEntry, WorkEntryRevision } from "./types";
  * recalculating a corrected timesheet entry.
  */
 export function recalculateEditedWorkHours(
-  existing: Pick<WorkEntry, "startAt" | "stopAt" | "breakMinutes">,
-  patch: Partial<Pick<WorkEntry, "startAt" | "stopAt" | "breakMinutes">>,
+  existing: Pick<WorkEntry, "startAt" | "stopAt" | "breakMinutes" | "extraMinutes">,
+  patch: Partial<Pick<WorkEntry, "startAt" | "stopAt" | "breakMinutes" | "extraMinutes">>,
 ): number {
   const startAt = patch.startAt ?? existing.startAt;
   const stopAt = patch.stopAt ?? existing.stopAt;
   const breakMinutes = Math.max(0, patch.breakMinutes ?? existing.breakMinutes);
-  return Math.max(0, stopAt - startAt - breakMinutes * 60_000) / 3_600_000;
+  const extraMinutes = Math.max(0, patch.extraMinutes ?? existing.extraMinutes ?? 0);
+  return Math.max(0, stopAt - startAt - breakMinutes * 60_000) / 3_600_000 + extraMinutes / 60;
 }
 
 
@@ -23,6 +24,7 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     stopAt: entry.stopAt,
     breakMinutes: entry.breakMinutes,
     totalHours: entry.totalHours,
+    extraMinutes: entry.extraMinutes,
     note: entry.note,
     workSite: entry.workSite,
     voidedAt: entry.voidedAt,
@@ -33,6 +35,7 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     startAt: patch.startAt ?? entry.startAt,
     stopAt: patch.stopAt ?? entry.stopAt,
     breakMinutes: patch.breakMinutes ?? entry.breakMinutes,
+    extraMinutes: patch.extraMinutes ?? entry.extraMinutes,
     note: patch.note ?? entry.note,
     workSite: patch.workSite ?? entry.workSite,
     voidedAt: Object.prototype.hasOwnProperty.call(patch, "voidedAt") ? patch.voidedAt : entry.voidedAt,
@@ -47,6 +50,7 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     stopAt: updated.stopAt,
     breakMinutes: updated.breakMinutes,
     totalHours: updated.totalHours,
+    extraMinutes: updated.extraMinutes,
     note: updated.note,
     workSite: updated.workSite,
     voidedAt: updated.voidedAt,

@@ -93,6 +93,7 @@ export function WorkReceiptCard({ employer, date, entries }: { employer: Employe
       {entries.map((entry) => (
         <div key={entry.id} className="mb-2 rounded-md bg-background/50 px-3 py-2 text-xs">
           <span className="font-semibold">{entry.totalHours.toFixed(2)}h</span>
+          {(entry.extraMinutes || 0) > 0 && <span> · +{entry.extraMinutes}m documented extra work</span>}
           {entry.workSite && <span> · {entry.workSite}</span>}
           {entry.note && <p className="mt-1 text-muted-foreground">{entry.note}</p>}
         </div>

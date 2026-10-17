@@ -26,6 +26,7 @@ export interface WorkEntryRevision {
     stopAt: number;
     breakMinutes: number;
     totalHours: number;
+    extraMinutes?: number;
     note: string;
     workSite?: string;
     voidedAt?: number;
@@ -41,7 +42,8 @@ export interface WorkEntry {
   startAt: number;      // epoch ms
   stopAt: number;       // epoch ms
   breakMinutes: number;  // deducted break time
-  totalHours: number;   // computed (stopAt - startAt - break) in hours
+  totalHours: number;   // elapsed minus break, plus any explicit extraMinutes
+  extraMinutes?: number; // documented labor omitted from clock times; not a fabricated shift
   note: string;
   workSite?: string;    // Optional job/property label, not a location tracking field
   revisions?: WorkEntryRevision[]; // Original values retained on corrections
