@@ -30,7 +30,7 @@ import type {
   WorkEntry,
 } from "./types";
 import { isoDate, uid, weekKey } from "./utils";
-import { recalculateEditedWorkHours } from "./work-hours";
+import { reviseWorkEntry } from "./work-hours";
 
 interface StoreActions {
   // Work timer / entries
@@ -174,11 +174,16 @@ export const useCoilsideStore = create<Store>()(
       updateWorkEntry: (id, patch) =>
         set((s) => ({
           workEntries: s.workEntries.map((w) =>
-            w.id === id ? { ...w, ...patch, totalHours: recalculateEditedWorkHours(w, patch) } : w
+            w.id === id ? reviseWorkEntry(w, patch) : w
           ),
         })),
+      // A deleted time entry remains in the audit trail as a voided record.
       deleteWorkEntry: (id) =>
-        set((s) => ({ workEntries: s.workEntries.filter((w) => w.id !== id) })),
+        set((s) => ({
+          workEntries: s.workEntries.map((w) =>
+            w.id === id ? reviseWorkEntry(w, { voidedAt: Date.now() }) : w
+          ),
+        })),
 
       // ---------- Notes ----------
       addNote: ({ category, text, seanTaught }) => {
@@ -625,7 +630,7 @@ export function weeklyTotalsFor(
   weekKeyVal: string = weekKey(new Date())
 ): { hours: number; count: number } {
   const filtered = entries.filter(
-    (e) => e.employer === employer && weekKey(new Date(e.startAt)) === weekKeyVal
+    (e) => e.employer === employer && !e.voidedAt && weekKey(new Date(`${e.date}T12:00:00`)) === weekKeyVal
   );
   const hours = filtered.reduce((acc, e) => acc + e.totalHours, 0);
   return { hours, count: filtered.length };
