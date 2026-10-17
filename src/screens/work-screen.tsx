@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Pencil, Share2, Trash2 } from "lucide-react";
 import { AppBar } from "@/components/app-bar";
 import { VoiceHoursCapture } from "@/components/voice-hours-capture";
+import { WorkReceiptCard } from "@/components/work-receipt-card";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
 import { formatHours, formatTime, formatDateLabel, weekKey } from "@/lib/utils";
@@ -155,6 +156,8 @@ export function WorkScreen() {
   const [tookLunch, setTookLunch] = useState(false);
   const [lunchMinutes, setLunchMinutes] = useState(30);
   const [note, setNote] = useState("");
+  const [workSite, setWorkSite] = useState("");
+  const [savedHint, setSavedHint] = useState(false);
   const [error, setError] = useState("");
 
   const startAt = epochFromTime(date, start);
@@ -164,20 +167,20 @@ export function WorkScreen() {
 
   function addEntry(entry: WorkEntry) {
     useCoilsideStore.setState((state) => ({ workEntries: [entry, ...state.workEntries], activeTimer: null }));
-    setError(""); setNote(""); setTookLunch(false); setLunchMinutes(30);
+    setError(""); setNote(""); setWorkSite(""); setSavedHint(true); setTookLunch(false); setLunchMinutes(30);
   }
 
   function saveEntry() {
     if (!date || !start || !stop) return setError("Date, start time, and end time are required.");
     if (stopAt <= startAt) return setError("End time has to be after start time.");
     if (previewHours <= 0) return setError("Use DID NOT WORK for a zero-hour day.");
-    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, note: note.trim() });
+    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, note: note.trim(), workSite: workSite.trim() });
   }
 
   function saveZeroDay() {
     if (!date) return setError("Pick the date first.");
     const at = epochFromTime(date, "00:00");
-    addEntry({ id: `zero-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt: at, stopAt: at, breakMinutes: 0, totalHours: 0, note: note.trim() || "Did not work" });
+    addEntry({ id: `zero-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt: at, stopAt: at, breakMinutes: 0, totalHours: 0, note: note.trim() || "Did not work", workSite: workSite.trim() });
   }
 
   return (
@@ -200,9 +203,11 @@ export function WorkScreen() {
           </div>
           <label className="mb-3 flex min-h-12 items-center justify-between rounded-lg border border-border bg-background/40 p-3"><span className="font-semibold">Took lunch?</span><input type="checkbox" checked={tookLunch} onChange={(e) => setTookLunch(e.target.checked)} className="h-5 w-5 accent-amber-500" /></label>
           {tookLunch && <div className="mb-3"><Label>Lunch minutes</Label><Input type="number" min={0} value={lunchMinutes} onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))} className="h-12" /></div>}
-          <div className="mb-3"><Label>Note (optional)</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></div>
+          <div className="mb-3"><Label>Job / property (optional)</Label><Input value={workSite} onChange={(e) => setWorkSite(e.target.value)} placeholder="Example: Farmhouse fence" className="h-12" /></div>
+          <div className="mb-3"><Label>What did you do? Problems or delays? (optional)</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></div>
           <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-bold uppercase text-muted-foreground">This entry</p><p className="text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p></div>
           {error && <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{error}</p>}
+          {savedHint && <div className="mb-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sm">Hours saved. Open this employer’s timesheet below to attach work photos and share a daily receipt.</div>}
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={saveEntry} className="h-12 bg-amber-500 text-black">SAVE {previewHours.toFixed(2)}h</Button>
             <Button variant="secondary" onClick={saveZeroDay} className="h-12">DID NOT WORK · 0h</Button>
@@ -235,9 +240,14 @@ export function WorkHistoryScreen() {
   const employerFilter = (useNav((s) => s.contextId) ?? "tim") as Employer;
   const [selectedWeekKey, setSelectedWeekKey] = useState(() => weekKey(new Date()));
   const [shareStatus, setShareStatus] = useState<"idle" | "working" | "done">("idle");
-  const entries = useMemo(() => workEntries.filter((e) => e.employer === employerFilter), [workEntries, employerFilter]);
+  const entries = useMemo(() => workEntries.filter((e) => e.employer === employerFilter && !e.voidedAt), [workEntries, employerFilter]);
   const weekEntries = useMemo(() => entries.filter((entry) => weekKey(new Date(`${entry.date}T12:00:00`)) === selectedWeekKey), [entries, selectedWeekKey]);
   const weekTotal = weekEntries.reduce((sum, e) => sum + e.totalHours, 0);
+  const receiptDates = [...new Set(weekEntries.map((entry) => entry.date))].sort().reverse();
+  const voidedWeekEntries = workEntries.filter((entry) =>
+    entry.employer === employerFilter && entry.voidedAt &&
+    weekKey(new Date(`${entry.date}T12:00:00`)) === selectedWeekKey
+  );
 
   async function shareWeeklyTimesheet() {
     if (!weekEntries.length || shareStatus === "working") return;
@@ -273,8 +283,23 @@ export function WorkHistoryScreen() {
           <div className="mt-3 flex items-end justify-between rounded-lg bg-amber-500/10 p-3"><div><p className="text-xs font-bold uppercase text-muted-foreground">Week total</p><p className="text-xs text-muted-foreground">{weekEntries.length} documented day{weekEntries.length === 1 ? "" : "s"}</p></div><p className="text-3xl font-black text-amber-300">{weekTotal.toFixed(2)}h</p></div>
         </div>
 
+        <p className="pt-2 text-xs font-bold uppercase text-muted-foreground">Daily Work Receipts · photos + descriptions</p>
+        {receiptDates.map((day) => (
+          <WorkReceiptCard key={day} employer={employerFilter} date={day} entries={weekEntries.filter((entry) => entry.date === day)} />
+        ))}
         <p className="pt-2 text-xs font-bold uppercase text-muted-foreground">Entries for this week only</p>
         {weekEntries.map((e) => <EntryCard key={e.id} entry={e} onUpdate={update} onDelete={del} />)}
+        {voidedWeekEntries.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-3">
+            <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">Voided entries · excluded from totals, retained for audit</p>
+            {voidedWeekEntries.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between gap-2 border-t border-border py-2 text-sm">
+                <span>{formatDateLabel(entry.date)} · {entry.totalHours.toFixed(2)}h (voided)</span>
+                <Button variant="outline" size="sm" onClick={() => update(entry.id, { voidedAt: undefined })}>Restore</Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -283,6 +308,67 @@ export function WorkHistoryScreen() {
 function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: (id: string, patch: Partial<WorkEntry>) => void; onDelete: (id: string) => void; }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
-  if (!editing) return <div className="rounded-lg border border-border bg-card p-3"><div className="flex justify-between gap-2"><div><p className="font-bold">{formatDateLabel(entry.date)}</p><p className="text-xs text-muted-foreground">{isZeroDay(entry) ? "Did not work" : `${formatTime(entry.startAt)} → ${formatTime(entry.stopAt)}${entry.breakMinutes > 0 ? ` · ${entry.breakMinutes} min lunch` : " · no lunch"}`}</p></div><p className="text-lg font-black text-amber-300">{entry.totalHours.toFixed(2)}h</p></div>{entry.note && <p className="mt-2 text-sm">{entry.note}</p>}<div className="mt-2 flex gap-2"><Button size="sm" variant="ghost" onClick={()=>setEditing(true)}><Pencil size={14} className="mr-1"/>Edit</Button><Button size="sm" variant="ghost" className="text-red-400" onClick={()=>{if(confirm("Delete this entry?")) onDelete(entry.id)}}><Trash2 size={14} className="mr-1"/>Delete</Button></div></div>;
-  return <div className="rounded-lg border-2 border-amber-500/40 bg-card p-3"><Label>Date</Label><Input type="date" value={draft.date} onChange={(e)=>{const nd=e.target.value;setDraft({...draft,date:nd,startAt:epochFromTime(nd,timeFromEpoch(draft.startAt)),stopAt:epochFromTime(nd,timeFromEpoch(draft.stopAt))})}} />{!isZeroDay(draft) && <><div className="mt-2 grid grid-cols-2 gap-2"><div><Label>Started</Label><Input type="time" value={timeFromEpoch(draft.startAt)} onChange={(e)=>setDraft({...draft,startAt:epochFromTime(draft.date,e.target.value)})}/></div><div><Label>Ended</Label><Input type="time" value={timeFromEpoch(draft.stopAt)} onChange={(e)=>setDraft({...draft,stopAt:epochFromTime(draft.date,e.target.value)})}/></div></div><div className="mt-2"><Label>Lunch minutes</Label><Input type="number" value={draft.breakMinutes} onChange={(e)=>setDraft({...draft,breakMinutes:Math.max(0,parseInt(e.target.value||"0",10))})}/></div></>}<div className="mt-2"><Label>Note</Label><Textarea value={draft.note} onChange={(e)=>setDraft({...draft,note:e.target.value})}/></div><div className="mt-3 grid grid-cols-2 gap-2"><Button onClick={()=>{const startAt=draft.startAt, stopAt=draft.stopAt, breakMinutes=draft.breakMinutes;onUpdate(entry.id,{...draft,totalHours:isZeroDay(entry)?0:totalHoursFor(startAt,stopAt,breakMinutes)});setEditing(false)}}>Save</Button><Button variant="ghost" onClick={()=>setEditing(false)}>Cancel</Button></div></div>;
+  const [validation, setValidation] = useState("");
+  if (!editing) return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="flex justify-between gap-2">
+        <div>
+          <p className="font-bold">{formatDateLabel(entry.date)}{entry.workSite ? ` · ${entry.workSite}` : ""}</p>
+          <p className="text-xs text-muted-foreground">
+            {isZeroDay(entry) ? "Did not work" : `${formatTime(entry.startAt)} → ${formatTime(entry.stopAt)}${entry.breakMinutes > 0 ? ` · ${entry.breakMinutes} min break` : " · no break"}`}
+          </p>
+        </div>
+        <p className="text-lg font-black text-amber-300">{entry.totalHours.toFixed(2)}h</p>
+      </div>
+      {entry.note && <p className="mt-2 text-sm">{entry.note}</p>}
+      {(entry.revisions?.length || 0) > 0 && (
+        <details className="mt-2 text-xs text-muted-foreground">
+          <summary>{entry.revisions?.length} saved correction(s) · view previous values</summary>
+          {entry.revisions?.map((revision, i) => (
+            <div key={i} className="mt-2 border-t border-border pt-2">
+              <p>Changed: {new Date(revision.at).toLocaleString()}</p>
+              <p>Previous: {revision.before.date} · {new Date(revision.before.startAt).toLocaleTimeString()} – {new Date(revision.before.stopAt).toLocaleTimeString()} · {revision.before.breakMinutes}m break · {revision.before.totalHours.toFixed(2)}h</p>
+              <p>Previous job: {revision.before.workSite || "Not entered"}</p>
+              <p>Previous notes: {revision.before.note || "Not entered"}</p>
+              {revision.before.voidedAt && <p>Previously voided</p>}
+            </div>
+          ))}
+        </details>
+      )}
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" variant="ghost" onClick={() => { setDraft(entry); setValidation(""); setEditing(true); }}><Pencil size={14} className="mr-1"/>Edit</Button>
+        <Button size="sm" variant="ghost" className="text-red-400" onClick={() => { if (confirm("Void this entry? It stays in the correction history and will not count toward hours.")) onDelete(entry.id); }}><Trash2 size={14} className="mr-1"/>Void</Button>
+      </div>
+    </div>
+  );
+  const zeroDay = isZeroDay(entry);
+  return (
+    <div className="rounded-lg border-2 border-amber-500/40 bg-card p-3">
+      <Label>Date</Label>
+      <Input type="date" value={draft.date} onChange={(event) => { const nd = event.target.value; setDraft({ ...draft, date: nd, startAt: epochFromTime(nd, timeFromEpoch(draft.startAt)), stopAt: epochFromTime(nd, timeFromEpoch(draft.stopAt)) }); }} />
+      {!zeroDay && (
+        <>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div><Label>Started</Label><Input type="time" value={timeFromEpoch(draft.startAt)} onChange={(event) => setDraft({ ...draft, startAt: epochFromTime(draft.date, event.target.value) })} /></div>
+            <div><Label>Ended</Label><Input type="time" value={timeFromEpoch(draft.stopAt)} onChange={(event) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, event.target.value) })} /></div>
+          </div>
+          <div className="mt-2"><Label>Break minutes</Label><Input type="number" min={0} value={draft.breakMinutes} onChange={(event) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(event.target.value || "0", 10)) })} /></div>
+        </>
+      )}
+      <div className="mt-2"><Label>Job / property</Label><Input value={draft.workSite || ""} onChange={(event) => setDraft({ ...draft, workSite: event.target.value })} /></div>
+      <div className="mt-2"><Label>What did you do?</Label><Textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></div>
+      {validation && <p className="mt-2 text-xs text-red-400">{validation}</p>}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button onClick={() => {
+          if (!zeroDay && (draft.stopAt <= draft.startAt || draft.breakMinutes * 60_000 >= draft.stopAt - draft.startAt)) {
+            setValidation("End must be after start and the break must be shorter than the shift.");
+            return;
+          }
+          onUpdate(entry.id, { date: draft.date, startAt: draft.startAt, stopAt: draft.stopAt, breakMinutes: draft.breakMinutes, note: draft.note, workSite: draft.workSite });
+          setEditing(false);
+        }}>Save correction</Button>
+        <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+      </div>
+    </div>
+  );
 }
