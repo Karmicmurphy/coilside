@@ -103,7 +103,7 @@ export async function buildDailyWorkReceiptPng({ employerName, date, entries, ph
     ctx.fillText(start + " – " + stop + "   ·   " + e.totalHours.toFixed(2) + "h", margin, y + 44);
     ctx.font = "26px Arial, sans-serif";
     ctx.fillStyle = "#b6c1ce";
-    ctx.fillText("Break: " + e.breakMinutes + " minutes", margin, y + 82);
+    ctx.fillText("Break: " + e.breakMinutes + " minutes" + (e.extraMinutes ? "   |   Additional documented work: +" + e.extraMinutes + " min" : ""), margin, y + 82);
     ctx.fillStyle = "#f8fafc";
     const description = [e.workSite, e.note].filter(Boolean).join(" — ") || "No description entered.";
     wrap(ctx, description, width - margin * 2 - 18).forEach((line, lineNo) => {
