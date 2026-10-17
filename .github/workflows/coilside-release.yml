@@ -1,0 +1,73 @@
+name: COILSIDE verified live release
+
+on:
+  # Limited one-shot bootstrap: adding/changing this workflow on main launches
+  # one release. Normal feature PRs do NOT silently deploy production.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/coilside-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coilside-production-release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      # Stable target account ID only; never a secret. Do not deploy into other accounts.
+      CLOUDFLARE_ACCOUNT_ID: "7e102a5a5005fcf49e19c3e50e7b3e72"
+    steps:
+      - name: Check out main release
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Check deployment authorization
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Missing repository secret CLOUDFLARE_API_TOKEN. Existing live COILSIDE remains unchanged."
+            exit 1
+          fi
+          grep -q '"name": "coilside"' wrangler.jsonc || { echo "::error::Wrong Worker name"; exit 1; }
+          grep -q '"database_id": "228d72be-effe-4f17-9889-e06ef87f2826"' wrangler.jsonc || { echo "::error::Unexpected D1 target"; exit 1; }
+
+      - name: Install exact dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      - name: Generate route types
+        run: bunx next typegen
+
+      - name: Work and pairing tests
+        run: bun test tests/work-hours.test.ts tests/team-pair.test.ts tests/work-receipts.test.ts
+
+      - name: Type-check
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Deploy reviewed Next.js Worker and assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bun run cf:deploy
+
+      - name: Release identity
+        run: echo "COILSIDE production Worker deployment from GitHub commit $GITHUB_SHA"
