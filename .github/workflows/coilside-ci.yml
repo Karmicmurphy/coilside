@@ -36,8 +36,8 @@ jobs:
       - name: Generate Next.js route types
         run: bunx next typegen
 
-      - name: Work-hours regression tests
-        run: bun test tests/work-hours.test.ts tests/team-pair.test.ts
+      - name: Work-hours and work-receipt regression tests
+        run: bun test tests/work-hours.test.ts tests/team-pair.test.ts tests/work-receipts.test.ts
 
       - name: Type-check
         run: bunx tsc --noEmit
