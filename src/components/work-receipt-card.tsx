@@ -7,7 +7,7 @@ import { PhotoImage } from "@/components/photo-image";
 import { useCoilsideStore } from "@/lib/store";
 import { fileToPhotoDataUrl } from "@/lib/photo-utils";
 import { buildDailyWorkReceiptPng, shareWorkReceipt } from "@/lib/work-receipt-image";
-import { workDayTotal } from "@/lib/work-hours";
+import { workDayTotal, workDayPhotos } from "@/lib/work-hours";
 import type { Employer, WorkEntry, WorkPhotoStage, PhotoSource } from "@/lib/types";
 
 const EMPLOYER_NAME: Record<Employer, string> = {
@@ -19,7 +19,7 @@ const EMPLOYER_NAME: Record<Employer, string> = {
 export function WorkReceiptCard({ employer, date, entries }: { employer: Employer; date: string; entries: WorkEntry[] }) {
   const allPhotos = useCoilsideStore((s) => s.equipmentPhotos);
   const addPhoto = useCoilsideStore((s) => s.addEquipmentPhoto);
-  const photos = allPhotos.filter((photo) => photo.workEmployer === employer && photo.workDate === date);
+  const photos = workDayPhotos(allPhotos, employer, date);
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<WorkPhotoStage>("progress");
