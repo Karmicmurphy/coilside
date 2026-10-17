@@ -157,24 +157,26 @@ export function WorkScreen() {
   const [lunchMinutes, setLunchMinutes] = useState(30);
   const [note, setNote] = useState("");
   const [workSite, setWorkSite] = useState("");
+  const [extraMinutes, setExtraMinutes] = useState(0);
   const [savedHint, setSavedHint] = useState(false);
   const [error, setError] = useState("");
 
   const startAt = epochFromTime(date, start);
   const stopAt = epochFromTime(date, stop);
   const breakMinutes = tookLunch ? Math.max(0, lunchMinutes || 0) : 0;
-  const previewHours = stopAt > startAt ? totalHoursFor(startAt, stopAt, breakMinutes) : 0;
+  const previewHours = stopAt > startAt && breakMinutes * 60_000 <= stopAt - startAt ? totalHoursFor(startAt, stopAt, breakMinutes) + extraMinutes / 60 : 0;
 
   function addEntry(entry: WorkEntry) {
     useCoilsideStore.setState((state) => ({ workEntries: [entry, ...state.workEntries], activeTimer: null }));
-    setError(""); setNote(""); setWorkSite(""); setSavedHint(true); setTookLunch(false); setLunchMinutes(30);
+    setError(""); setNote(""); setWorkSite(""); setExtraMinutes(0); setSavedHint(true); setTookLunch(false); setLunchMinutes(30);
   }
 
   function saveEntry() {
     if (!date || !start || !stop) return setError("Date, start time, and end time are required.");
     if (stopAt <= startAt) return setError("End time has to be after start time.");
     if (previewHours <= 0) return setError("Use DID NOT WORK for a zero-hour day.");
-    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, note: note.trim(), workSite: workSite.trim() });
+    if (extraMinutes > 0 && !note.trim()) return setError("Describe the additional work in the note so the extra time is clear.");
+    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, extraMinutes, note: note.trim(), workSite: workSite.trim() });
   }
 
   function saveZeroDay() {
@@ -204,8 +206,13 @@ export function WorkScreen() {
           <label className="mb-3 flex min-h-12 items-center justify-between rounded-lg border border-border bg-background/40 p-3"><span className="font-semibold">Took lunch?</span><input type="checkbox" checked={tookLunch} onChange={(e) => setTookLunch(e.target.checked)} className="h-5 w-5 accent-amber-500" /></label>
           {tookLunch && <div className="mb-3"><Label>Lunch minutes</Label><Input type="number" min={0} value={lunchMinutes} onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))} className="h-12" /></div>}
           <div className="mb-3"><Label>Job / property (optional)</Label><Input value={workSite} onChange={(e) => setWorkSite(e.target.value)} placeholder="Example: Farmhouse fence" className="h-12" /></div>
-          <div className="mb-3"><Label>What did you do? Problems or delays? (optional)</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></div>
-          <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-bold uppercase text-muted-foreground">This entry</p><p className="text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p></div>
+          <div className="mb-3">
+            <Label>Additional work not captured by these times (minutes)</Label>
+            <Input type="number" min={0} max={480} step={5} value={extraMinutes} onChange={(e) => setExtraMinutes(Math.min(480, Math.max(0, parseInt(e.target.value || "0", 10))))} className="h-12" />
+            <p className="mt-1 text-xs text-muted-foreground">Example: 30 minutes you worked but forgot to record. This is listed separately, not added to the clock times.</p>
+          </div>
+          <div className="mb-3"><Label>What did you do? Problems or delays? {extraMinutes > 0 ? "(required to explain the extra time)" : "(optional)"}</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></div>
+          <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-bold uppercase text-muted-foreground">This entry</p><p className="text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p>{extraMinutes > 0 && <p className="text-xs text-muted-foreground">Includes +{extraMinutes} minutes of documented extra labor</p>}</div>
           {error && <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{error}</p>}
           {savedHint && <div className="mb-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sm">Hours saved. Open this employer’s timesheet below to attach work photos and share a daily receipt.</div>}
           <div className="grid grid-cols-2 gap-2">
@@ -320,6 +327,7 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
         </div>
         <p className="text-lg font-black text-amber-300">{entry.totalHours.toFixed(2)}h</p>
       </div>
+      {(entry.extraMinutes || 0) > 0 && <p className="mt-2 text-xs font-semibold text-sky-400">+{entry.extraMinutes} minutes documented additional work (not part of the clock interval)</p>}
       {entry.note && <p className="mt-2 text-sm">{entry.note}</p>}
       {(entry.revisions?.length || 0) > 0 && (
         <details className="mt-2 text-xs text-muted-foreground">
@@ -329,6 +337,7 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
               <p>Changed: {new Date(revision.at).toLocaleString()}</p>
               <p>Previous: {revision.before.date} · {new Date(revision.before.startAt).toLocaleTimeString()} – {new Date(revision.before.stopAt).toLocaleTimeString()} · {revision.before.breakMinutes}m break · {revision.before.totalHours.toFixed(2)}h</p>
               <p>Previous job: {revision.before.workSite || "Not entered"}</p>
+              <p>Previous extra time: {revision.before.extraMinutes || 0} minutes</p>
               <p>Previous notes: {revision.before.note || "Not entered"}</p>
               {revision.before.voidedAt && <p>Previously voided</p>}
             </div>
@@ -355,6 +364,12 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
           <div className="mt-2"><Label>Break minutes</Label><Input type="number" min={0} value={draft.breakMinutes} onChange={(event) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(event.target.value || "0", 10)) })} /></div>
         </>
       )}
+      {!zeroDay && (
+        <div className="mt-2">
+          <Label>Additional work not captured by clock times (minutes)</Label>
+          <Input type="number" min={0} max={480} step={5} value={draft.extraMinutes || 0} onChange={(event) => setDraft({ ...draft, extraMinutes: Math.min(480, Math.max(0, parseInt(event.target.value || "0", 10))) })} />
+        </div>
+      )}
       <div className="mt-2"><Label>Job / property</Label><Input value={draft.workSite || ""} onChange={(event) => setDraft({ ...draft, workSite: event.target.value })} /></div>
       <div className="mt-2"><Label>What did you do?</Label><Textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></div>
       {validation && <p className="mt-2 text-xs text-red-400">{validation}</p>}
@@ -364,7 +379,11 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
             setValidation("End must be after start and the break must be shorter than the shift.");
             return;
           }
-          onUpdate(entry.id, { date: draft.date, startAt: draft.startAt, stopAt: draft.stopAt, breakMinutes: draft.breakMinutes, note: draft.note, workSite: draft.workSite });
+          if ((draft.extraMinutes || 0) > 0 && !draft.note.trim()) {
+            setValidation("Explain the additional work in the note before saving.");
+            return;
+          }
+          onUpdate(entry.id, { date: draft.date, startAt: draft.startAt, stopAt: draft.stopAt, breakMinutes: draft.breakMinutes, extraMinutes: draft.extraMinutes || 0, note: draft.note, workSite: draft.workSite });
           setEditing(false);
         }}>Save correction</Button>
         <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
