@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Pencil, Share2, Trash2 } from "lucide-react";
 import { AppBar } from "@/components/app-bar";
 import { VoiceHoursCapture } from "@/components/voice-hours-capture";
+import { TimePicker } from "@/components/time-picker";
 import { WorkReceiptCard } from "@/components/work-receipt-card";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
@@ -201,8 +202,8 @@ export function WorkScreen() {
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-400">Manual entry · {EMPLOYER_LABEL[employer]}</p>
           <Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mb-3 h-12" />
           <div className="mb-3 grid grid-cols-2 gap-2">
-            <div><Label>Started</Label><Input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="h-12" /></div>
-            <div><Label>Ended</Label><Input type="time" value={stop} onChange={(e) => setStop(e.target.value)} className="h-12" /></div>
+            <div><Label>Started</Label><TimePicker label="Started" value={start} onChange={setStart} /></div>
+            <div><Label>Ended</Label><TimePicker label="Ended" value={stop} onChange={setStop} /></div>
           </div>
           <label className="mb-3 flex min-h-12 items-center justify-between rounded-lg border border-border bg-background/40 p-3"><span className="font-semibold">Took lunch?</span><input type="checkbox" checked={tookLunch} onChange={(e) => setTookLunch(e.target.checked)} className="h-5 w-5 accent-amber-500" /></label>
           {tookLunch && <div className="mb-3"><Label>Lunch minutes</Label><Input type="number" min={0} value={lunchMinutes} onChange={(e) => setLunchMinutes(Math.max(0, parseInt(e.target.value || "0", 10)))} className="h-12" /></div>}
@@ -359,8 +360,8 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
       {!zeroDay && (
         <>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <div><Label>Started</Label><Input type="time" value={timeFromEpoch(draft.startAt)} onChange={(event) => setDraft({ ...draft, startAt: epochFromTime(draft.date, event.target.value) })} /></div>
-            <div><Label>Ended</Label><Input type="time" value={timeFromEpoch(draft.stopAt)} onChange={(event) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, event.target.value) })} /></div>
+            <div><Label>Started</Label><TimePicker label="Started" value={timeFromEpoch(draft.startAt)} onChange={(value) => setDraft({ ...draft, startAt: epochFromTime(draft.date, value) })} /></div>
+            <div><Label>Ended</Label><TimePicker label="Ended" value={timeFromEpoch(draft.stopAt)} onChange={(value) => setDraft({ ...draft, stopAt: epochFromTime(draft.date, value) })} /></div>
           </div>
           <div className="mt-2"><Label>Break minutes</Label><Input type="number" min={0} value={draft.breakMinutes} onChange={(event) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(event.target.value || "0", 10)) })} /></div>
         </>
