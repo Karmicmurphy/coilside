@@ -405,7 +405,7 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
       {validation && <p className="mt-2 text-xs text-red-400">{validation}</p>}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Button onClick={() => {
-          if (!zeroDay && (draft.stopAt <= draft.startAt || draft.breakMinutes * 60_000 >= draft.stopAt - draft.startAt)) {
+          if (draft.stopAt <= draft.startAt || draft.breakMinutes * 60_000 >= draft.stopAt - draft.startAt) {
             setValidation("End must be after start and the break must be shorter than the shift.");
             return;
           }
