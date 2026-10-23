@@ -25,6 +25,8 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     breakMinutes: entry.breakMinutes,
     totalHours: entry.totalHours,
     extraMinutes: entry.extraMinutes,
+    offsetMinutes: entry.offsetMinutes,
+    paidMinutes: entry.paidMinutes,
     note: entry.note,
     workSite: entry.workSite,
     voidedAt: entry.voidedAt,
@@ -36,6 +38,8 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     stopAt: patch.stopAt ?? entry.stopAt,
     breakMinutes: patch.breakMinutes ?? entry.breakMinutes,
     extraMinutes: patch.extraMinutes ?? entry.extraMinutes,
+    offsetMinutes: patch.offsetMinutes ?? entry.offsetMinutes,
+    paidMinutes: patch.paidMinutes ?? entry.paidMinutes,
     note: patch.note ?? entry.note,
     workSite: patch.workSite ?? entry.workSite,
     voidedAt: Object.prototype.hasOwnProperty.call(patch, "voidedAt") ? patch.voidedAt : entry.voidedAt,
@@ -51,6 +55,8 @@ export function reviseWorkEntry(entry: WorkEntry, patch: Partial<WorkEntry>, at 
     breakMinutes: updated.breakMinutes,
     totalHours: updated.totalHours,
     extraMinutes: updated.extraMinutes,
+    offsetMinutes: updated.offsetMinutes,
+    paidMinutes: updated.paidMinutes,
     note: updated.note,
     workSite: updated.workSite,
     voidedAt: updated.voidedAt,
@@ -72,4 +78,28 @@ export function workDayTotal(entries: WorkEntry[], employer: WorkEntry["employer
 /** A work photo never appears on another employer's receipt, even on the same date. */
 export function workDayPhotos(photos: EquipmentPhoto[], employer: WorkEntry["employer"], day: string): EquipmentPhoto[] {
   return photos.filter((photo) => photo.workEmployer === employer && photo.workDate === day);
+}
+
+/** All accounting is in whole minutes. Credits and payments never rewrite hours actually worked. */
+export function workPaymentBreakdown(entry: Pick<WorkEntry, "totalHours" | "offsetMinutes" | "paidMinutes">) {
+  const workedMinutes = Math.max(0, Math.round(entry.totalHours * 60));
+  const offsetMinutes = Math.min(workedMinutes, Math.max(0, Math.round(entry.offsetMinutes || 0)));
+  const payableMinutes = workedMinutes - offsetMinutes;
+  const paidMinutes = Math.min(payableMinutes, Math.max(0, Math.round(entry.paidMinutes || 0)));
+  return { workedMinutes, offsetMinutes, payableMinutes, paidMinutes, unpaidMinutes: payableMinutes - paidMinutes };
+}
+
+/** Grouped receipts never include voided time or a different employer's entries. */
+export function summarizeWorkPayments(entries: WorkEntry[]) {
+  const total = { workedMinutes: 0, offsetMinutes: 0, payableMinutes: 0, paidMinutes: 0, unpaidMinutes: 0 };
+  for (const entry of entries) {
+    if (entry.voidedAt) continue;
+    const breakdown = workPaymentBreakdown(entry);
+    total.workedMinutes += breakdown.workedMinutes;
+    total.offsetMinutes += breakdown.offsetMinutes;
+    total.payableMinutes += breakdown.payableMinutes;
+    total.paidMinutes += breakdown.paidMinutes;
+    total.unpaidMinutes += breakdown.unpaidMinutes;
+  }
+  return total;
 }
