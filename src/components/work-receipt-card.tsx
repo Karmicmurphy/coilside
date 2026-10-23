@@ -7,7 +7,7 @@ import { PhotoImage } from "@/components/photo-image";
 import { useCoilsideStore } from "@/lib/store";
 import { fileToPhotoDataUrl } from "@/lib/photo-utils";
 import { buildDailyWorkReceiptPng, shareWorkReceipt } from "@/lib/work-receipt-image";
-import { workDayTotal, workDayPhotos } from "@/lib/work-hours";
+import { workDayTotal, workDayPhotos, summarizeWorkPayments } from "@/lib/work-hours";
 import type { Employer, WorkEntry, WorkPhotoStage, PhotoSource } from "@/lib/types";
 
 const EMPLOYER_NAME: Record<Employer, string> = {
@@ -20,6 +20,7 @@ export function WorkReceiptCard({ employer, date, entries }: { employer: Employe
   const allPhotos = useCoilsideStore((s) => s.equipmentPhotos);
   const addPhoto = useCoilsideStore((s) => s.addEquipmentPhoto);
   const photos = workDayPhotos(allPhotos, employer, date);
+  const payment = summarizeWorkPayments(entries);
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<WorkPhotoStage>("progress");
@@ -90,6 +91,7 @@ export function WorkReceiptCard({ employer, date, entries }: { employer: Employe
           <Share2 size={15} className="mr-1" />{sharing ? "Making…" : "Share"}
         </Button>
       </div>
+      <p className="mb-2 text-xs text-sky-300">Credited {(payment.offsetMinutes / 60).toFixed(2)}h · Paid {(payment.paidMinutes / 60).toFixed(2)}h · Unpaid {(payment.unpaidMinutes / 60).toFixed(2)}h</p>
       {entries.map((entry) => (
         <div key={entry.id} className="mb-2 rounded-md bg-background/50 px-3 py-2 text-xs">
           <span className="font-semibold">{entry.totalHours.toFixed(2)}h</span>

@@ -2,6 +2,7 @@
 
 import type { EquipmentPhoto, WorkEntry } from "./types";
 import { getPhotoBlob } from "./photo-blobs";
+import { summarizeWorkPayments } from "./work-hours";
 
 export interface DailyReceiptInput {
   employerName: string;
@@ -71,7 +72,7 @@ export async function buildDailyWorkReceiptPng({ employerName, date, entries, ph
   });
   const photoRows = Math.ceil(files.length / 3);
   const photoArea = files.length ? 105 + photoRows * 340 : 70;
-  const height = 270 + rowHeights.reduce((a, b) => a + b, 0) + photoArea + 105;
+  const height = 400 + rowHeights.reduce((a, b) => a + b, 0) + photoArea + 105;
   canvas.width = width;
   canvas.height = height;
   ctx.fillStyle = "#12151b";
@@ -85,12 +86,17 @@ export async function buildDailyWorkReceiptPng({ employerName, date, entries, ph
   ctx.font = "29px Arial, sans-serif";
   ctx.fillStyle = "#b6c1ce";
   ctx.fillText(date, margin, 193);
-  const hours = sorted.reduce((total, item) => total + item.totalHours, 0);
+  const payment = summarizeWorkPayments(sorted);
   ctx.fillStyle = "#ffd14a";
   ctx.font = "bold 42px Arial, sans-serif";
-  ctx.fillText(hours.toFixed(2) + " hours worked", margin, 247);
+  ctx.fillText((payment.workedMinutes / 60).toFixed(2) + " hours actually worked", margin, 247);
+  ctx.font = "28px Arial, sans-serif"; ctx.fillStyle = "#b6c1ce";
+  ctx.fillText("Hours credited against debt: " + (payment.offsetMinutes / 60).toFixed(2), margin, 293);
+  ctx.fillText("Hours already paid: " + (payment.paidMinutes / 60).toFixed(2), margin, 330);
+  ctx.fillStyle = "#ffd14a"; ctx.font = "bold 32px Arial, sans-serif";
+  ctx.fillText("STILL UNPAID: " + (payment.unpaidMinutes / 60).toFixed(2) + "h", margin, 369);
 
-  let y = 270;
+  let y = 400;
   for (let i = 0; i < sorted.length; i++) {
     const e = sorted[i];
     const rowH = rowHeights[i];

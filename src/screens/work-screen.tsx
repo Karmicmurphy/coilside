@@ -6,6 +6,7 @@ import { AppBar } from "@/components/app-bar";
 import { VoiceHoursCapture } from "@/components/voice-hours-capture";
 import { TimePicker } from "@/components/time-picker";
 import { WorkReceiptCard } from "@/components/work-receipt-card";
+import { summarizeWorkPayments, workPaymentBreakdown } from "@/lib/work-hours";
 import { useCoilsideStore, weeklyTotalsFor } from "@/lib/store";
 import type { Employer, WorkEntry } from "@/lib/types";
 import { formatHours, formatTime, formatDateLabel, weekKey } from "@/lib/utils";
@@ -85,13 +86,13 @@ function shortDateLabel(dateIso: string): string {
 
 async function buildTimesheetPng(employer: Employer, entries: WorkEntry[], selectedWeekKey: string): Promise<Blob> {
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const total = sorted.reduce((sum, e) => sum + e.totalHours, 0);
+  const ledger = summarizeWorkPayments(sorted);
   const width = 1200;
   const padding = 56;
   const headerHeight = 250;
   const tableHeaderHeight = 76;
-  const rowHeight = 112;
-  const totalHeight = 170;
+  const rowHeight = 132;
+  const totalHeight = 300;
   const height = padding * 2 + headerHeight + tableHeaderHeight + rowHeight * Math.max(sorted.length, 1) + totalHeight;
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -106,7 +107,7 @@ async function buildTimesheetPng(employer: Employer, entries: WorkEntry[], selec
   ctx.strokeRect(18, 18, width - 36, height - 36);
   ctx.fillStyle = "#20bdf3";
   ctx.font = "700 38px Arial, sans-serif";
-  ctx.fillText("WEEKLY TIMESHEET", padding, 92);
+  ctx.fillText("WEEKLY WORK & PAYMENT RECEIPT", padding, 92);
   ctx.fillStyle = "#f5f5f5";
   ctx.font = "700 54px Arial, sans-serif";
   ctx.fillText(EMPLOYER_LABEL[employer], padding, 160);
@@ -138,14 +139,23 @@ async function buildTimesheetPng(employer: Employer, entries: WorkEntry[], selec
     }
     ctx.textAlign = "right"; ctx.fillStyle = "#ffd12f"; ctx.font = "700 34px Arial, sans-serif";
     ctx.fillText(entry.totalHours.toFixed(2), width - padding, y + 68);
-    if ((entry.extraMinutes || 0) > 0) { ctx.font = "20px Arial, sans-serif"; ctx.fillStyle = "#20bdf3"; ctx.fillText(`+${entry.extraMinutes}m extra`, width - padding, y + 102); }
+    const breakdown = workPaymentBreakdown(entry);
+    ctx.textAlign = "left"; ctx.fillStyle = "#20bdf3"; ctx.font = "24px Arial, sans-serif";
+    ctx.fillText(`Credited: ${(breakdown.offsetMinutes / 60).toFixed(2)}h    Paid: ${(breakdown.paidMinutes / 60).toFixed(2)}h    Unpaid: ${(breakdown.unpaidMinutes / 60).toFixed(2)}h`, padding + 10, y + 112);
   });
 
   const footerY = tableTop + tableHeaderHeight + Math.max(sorted.length, 1) * rowHeight;
-  ctx.fillStyle = "#302416"; ctx.fillRect(padding, footerY + 20, width - padding * 2, 128);
-  ctx.textAlign = "left"; ctx.fillStyle = "#aaa6a0"; ctx.font = "700 31px Arial, sans-serif"; ctx.fillText("WEEK TOTAL", padding + 30, footerY + 75);
-  ctx.font = "28px Arial, sans-serif"; ctx.fillText(`${sorted.length} day${sorted.length === 1 ? "" : "s"} documented`, padding + 30, footerY + 113);
-  ctx.textAlign = "right"; ctx.fillStyle = "#ffd12f"; ctx.font = "700 68px Arial, sans-serif"; ctx.fillText(`${total.toFixed(2)}h`, width - padding - 30, footerY + 100);
+  ctx.fillStyle = "#302416"; ctx.fillRect(padding, footerY + 20, width - padding * 2, 270);
+  ctx.textAlign = "left"; ctx.font = "700 30px Arial, sans-serif";
+  ctx.fillStyle = "#aaa6a0"; ctx.fillText("ACTUALLY WORKED", padding + 30, footerY + 70);
+  ctx.fillText("APPLIED TO HOURS OWED", padding + 30, footerY + 122);
+  ctx.fillText("ALREADY PAID", padding + 30, footerY + 174);
+  ctx.fillStyle = "#ffd12f"; ctx.fillText("STILL UNPAID", padding + 30, footerY + 246);
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#f5f5f5"; ctx.fillText(`${(ledger.workedMinutes / 60).toFixed(2)}h`, width - padding - 30, footerY + 70);
+  ctx.fillText(`−${(ledger.offsetMinutes / 60).toFixed(2)}h`, width - padding - 30, footerY + 122);
+  ctx.fillText(`−${(ledger.paidMinutes / 60).toFixed(2)}h`, width - padding - 30, footerY + 174);
+  ctx.font = "700 44px Arial, sans-serif"; ctx.fillStyle = "#ffd12f"; ctx.fillText(`${(ledger.unpaidMinutes / 60).toFixed(2)}h`, width - padding - 30, footerY + 246);
 
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create image")), "image/png", 1));
 }
@@ -160,6 +170,7 @@ export function WorkScreen() {
   const [note, setNote] = useState("");
   const [workSite, setWorkSite] = useState("");
   const [extraMinutes, setExtraMinutes] = useState(0);
+  const [creditHours, setCreditHours] = useState(0);
   const [savedHint, setSavedHint] = useState(false);
   const [error, setError] = useState("");
 
@@ -170,7 +181,7 @@ export function WorkScreen() {
 
   function addEntry(entry: WorkEntry) {
     useCoilsideStore.setState((state) => ({ workEntries: [entry, ...state.workEntries], activeTimer: null }));
-    setError(""); setNote(""); setWorkSite(""); setExtraMinutes(0); setSavedHint(true); setTookLunch(false); setLunchMinutes(30);
+    setError(""); setNote(""); setWorkSite(""); setExtraMinutes(0); setCreditHours(0); setSavedHint(true); setTookLunch(false); setLunchMinutes(30);
   }
 
   function saveEntry() {
@@ -178,7 +189,8 @@ export function WorkScreen() {
     if (stopAt <= startAt) return setError("End time has to be after start time.");
     if (previewHours <= 0) return setError("Use DID NOT WORK for a zero-hour day.");
     if (extraMinutes > 0 && !note.trim()) return setError("Describe the additional work in the note so the extra time is clear.");
-    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, extraMinutes, note: note.trim(), workSite: workSite.trim() });
+    if (creditHours > previewHours) return setError("Hours applied to a debt cannot exceed hours worked.");
+    addEntry({ id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, employer, date, startAt, stopAt, breakMinutes, totalHours: previewHours, extraMinutes, offsetMinutes: Math.round(creditHours * 60), note: note.trim(), workSite: workSite.trim() });
   }
 
   function saveZeroDay() {
@@ -213,8 +225,12 @@ export function WorkScreen() {
             <Input type="number" min={0} max={480} step={5} value={extraMinutes} onChange={(e) => setExtraMinutes(Math.min(480, Math.max(0, parseInt(e.target.value || "0", 10))))} className="h-12" />
             <p className="mt-1 text-xs text-muted-foreground">Example: 30 minutes you worked but forgot to record. This is listed separately, not added to the clock times.</p>
           </div>
+          <div className="mb-3"><Label>Hours used to repay employer (optional)</Label>
+            <Input type="number" min={0} step={0.25} value={creditHours} onChange={(e) => setCreditHours(Math.max(0, Number(e.target.value) || 0))} className="h-12" />
+            <p className="mt-1 text-xs text-muted-foreground">Example: Worked 2.5 hours, owed Sean 2 hours: enter 2 here. All 2.5 worked hours stay documented.</p>
+          </div>
           <div className="mb-3"><Label>What did you do? Problems or delays? {extraMinutes > 0 ? "(required to explain the extra time)" : "(optional)"}</Label><Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} /></div>
-          <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-bold uppercase text-muted-foreground">This entry</p><p className="text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p>{extraMinutes > 0 && <p className="text-xs text-muted-foreground">Includes +{extraMinutes} minutes of documented extra labor</p>}</div>
+          <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-bold uppercase text-muted-foreground">Hours actually worked</p><p className="text-3xl font-black text-amber-300">{previewHours.toFixed(2)}h</p><p className="text-sm">Unpaid after credit: {Math.max(0, previewHours - creditHours).toFixed(2)}h</p>{extraMinutes > 0 && <p className="text-xs text-muted-foreground">Includes +{extraMinutes} minutes of documented extra labor</p>}</div>
           {error && <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-300">{error}</p>}
           {savedHint && <div className="mb-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sm">Hours saved. Open this employer’s timesheet below to attach work photos and share a daily receipt.</div>}
           <div className="grid grid-cols-2 gap-2">
@@ -251,7 +267,7 @@ export function WorkHistoryScreen() {
   const [shareStatus, setShareStatus] = useState<"idle" | "working" | "done">("idle");
   const entries = useMemo(() => workEntries.filter((e) => e.employer === employerFilter && !e.voidedAt), [workEntries, employerFilter]);
   const weekEntries = useMemo(() => entries.filter((entry) => weekKey(new Date(`${entry.date}T12:00:00`)) === selectedWeekKey), [entries, selectedWeekKey]);
-  const weekTotal = weekEntries.reduce((sum, e) => sum + e.totalHours, 0);
+  const ledger = summarizeWorkPayments(weekEntries);
   const receiptDates = [...new Set(weekEntries.map((entry) => entry.date))].sort().reverse();
   const voidedWeekEntries = workEntries.filter((entry) =>
     entry.employer === employerFilter && entry.voidedAt &&
@@ -284,14 +300,20 @@ export function WorkHistoryScreen() {
         <Button variant="ghost" className="w-full" onClick={() => setSelectedWeekKey(weekKey(new Date()))}>THIS WEEK</Button>
 
         <div className="rounded-xl border-2 border-sky-500/30 bg-card p-4">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase text-sky-400">Weekly timesheet</p><p className="font-bold">{EMPLOYER_LABEL[employerFilter]}</p></div><Button onClick={shareWeeklyTimesheet} disabled={!weekEntries.length || shareStatus === "working"}>{shareStatus === "done" ? <Check size={17} className="mr-2" /> : <Share2 size={17} className="mr-2" />}{shareStatus === "working" ? "Making…" : shareStatus === "done" ? "Done" : "Copy / Share"}</Button></div>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase text-sky-400">Weekly timesheet</p><p className="font-bold">{EMPLOYER_LABEL[employerFilter]}</p></div><Button onClick={shareWeeklyTimesheet} disabled={!weekEntries.length || shareStatus === "working"}>{shareStatus === "done" ? <Check size={17} className="mr-2" /> : <Share2 size={17} className="mr-2" />}{shareStatus === "working" ? "Making…" : shareStatus === "done" ? "Done" : "Print / Share"}</Button></div>
           <div className="mt-4 overflow-hidden rounded-lg border border-border">
             <div className="grid grid-cols-[1.25fr_0.8fr_0.8fr_1fr_0.75fr] gap-1 bg-background/70 px-2 py-2 text-[10px] font-bold uppercase text-muted-foreground"><span>Date</span><span>Start</span><span>End</span><span>Lunch</span><span className="text-right">Hours</span></div>
             {weekEntries.length === 0 ? <div className="p-6 text-center text-sm text-muted-foreground">No entries for this Sunday–Saturday week.</div> : [...weekEntries].sort((a,b)=>a.date.localeCompare(b.date)).map((entry) => <div key={entry.id} className="grid grid-cols-[1.25fr_0.8fr_0.8fr_1fr_0.75fr] gap-1 border-t border-border px-2 py-2 text-xs"><span className="font-semibold">{formatDateLabel(entry.date)}</span>{isZeroDay(entry) ? <><span>—</span><span>—</span><span>No work</span></> : <><span>{formatTime(entry.startAt)}</span><span>{formatTime(entry.stopAt)}</span><span>{entry.breakMinutes > 0 ? `${entry.breakMinutes} min` : "No"}</span></>}<span className="text-right font-black text-amber-300">{entry.totalHours.toFixed(2)}</span></div>)}
           </div>
-          <div className="mt-3 flex items-end justify-between rounded-lg bg-amber-500/10 p-3"><div><p className="text-xs font-bold uppercase text-muted-foreground">Week total</p><p className="text-xs text-muted-foreground">{weekEntries.length} documented day{weekEntries.length === 1 ? "" : "s"}</p></div><p className="text-3xl font-black text-amber-300">{weekTotal.toFixed(2)}h</p></div>
+          <div className="mt-3 flex items-end justify-between rounded-lg bg-amber-500/10 p-3"><div><p className="text-xs font-bold uppercase text-muted-foreground">Hours worked</p><p className="text-xs text-muted-foreground">{weekEntries.length} documented day{weekEntries.length === 1 ? "" : "s"}</p></div><p className="text-3xl font-black text-amber-300">{(ledger.workedMinutes / 60).toFixed(2)}h</p></div>
         </div>
 
+        <div className="grid grid-cols-3 gap-2 rounded-lg border border-border p-3 text-center">
+          <div><p className="text-xs text-muted-foreground">Credited back</p><p className="font-bold">{(ledger.offsetMinutes / 60).toFixed(2)}h</p></div>
+          <div><p className="text-xs text-muted-foreground">Already paid</p><p className="font-bold">{(ledger.paidMinutes / 60).toFixed(2)}h</p></div>
+          <div><p className="text-xs font-bold text-amber-300">Still unpaid</p><p className="text-xl font-black text-amber-300">{(ledger.unpaidMinutes / 60).toFixed(2)}h</p></div>
+        </div>
+        <p className="text-xs text-muted-foreground">Print / Share saves or shares a printable weekly image. Old zero-hour days must be corrected to show the work actually done.</p>
         <p className="pt-2 text-xs font-bold uppercase text-muted-foreground">Daily Work Receipts · photos + descriptions</p>
         {receiptDates.map((day) => (
           <WorkReceiptCard key={day} employer={employerFilter} date={day} entries={weekEntries.filter((entry) => entry.date === day)} />
@@ -318,6 +340,7 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
   const [validation, setValidation] = useState("");
+  const payment = workPaymentBreakdown(entry);
   if (!editing) return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="flex justify-between gap-2">
@@ -330,6 +353,7 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
         <p className="text-lg font-black text-amber-300">{entry.totalHours.toFixed(2)}h</p>
       </div>
       {(entry.extraMinutes || 0) > 0 && <p className="mt-2 text-xs font-semibold text-sky-400">+{entry.extraMinutes} minutes documented additional work (not part of the clock interval)</p>}
+      <p className="mt-2 text-xs text-sky-400">Credited: {(payment.offsetMinutes / 60).toFixed(2)}h · Paid: {(payment.paidMinutes / 60).toFixed(2)}h · Unpaid: {(payment.unpaidMinutes / 60).toFixed(2)}h</p>
       {entry.note && <p className="mt-2 text-sm">{entry.note}</p>}
       {(entry.revisions?.length || 0) > 0 && (
         <details className="mt-2 text-xs text-muted-foreground">
@@ -340,24 +364,25 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
               <p>Previous: {revision.before.date} · {new Date(revision.before.startAt).toLocaleTimeString()} – {new Date(revision.before.stopAt).toLocaleTimeString()} · {revision.before.breakMinutes}m break · {revision.before.totalHours.toFixed(2)}h</p>
               <p>Previous job: {revision.before.workSite || "Not entered"}</p>
               <p>Previous extra time: {revision.before.extraMinutes || 0} minutes</p>
+              <p>Previous credited: {revision.before.offsetMinutes || 0} minutes · paid: {revision.before.paidMinutes || 0} minutes</p>
               <p>Previous notes: {revision.before.note || "Not entered"}</p>
               {revision.before.voidedAt && <p>Previously voided</p>}
             </div>
           ))}
         </details>
       )}
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
+        {payment.unpaidMinutes > 0 && <Button size="sm" variant="outline" onClick={() => onUpdate(entry.id, { paidMinutes: payment.payableMinutes })}><Check size={14} className="mr-1"/>Mark paid</Button>}
         <Button size="sm" variant="ghost" onClick={() => { setDraft(entry); setValidation(""); setEditing(true); }}><Pencil size={14} className="mr-1"/>Edit</Button>
         <Button size="sm" variant="ghost" className="text-red-400" onClick={() => { if (confirm("Void this entry? It stays in the correction history and will not count toward hours.")) onDelete(entry.id); }}><Trash2 size={14} className="mr-1"/>Void</Button>
       </div>
     </div>
   );
-  const zeroDay = isZeroDay(entry);
   return (
     <div className="rounded-lg border-2 border-amber-500/40 bg-card p-3">
       <Label>Date</Label>
       <Input type="date" value={draft.date} onChange={(event) => { const nd = event.target.value; setDraft({ ...draft, date: nd, startAt: epochFromTime(nd, timeFromEpoch(draft.startAt)), stopAt: epochFromTime(nd, timeFromEpoch(draft.stopAt)) }); }} />
-      {!zeroDay && (
+      {(
         <>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div><Label>Started</Label><TimePicker label="Started" value={timeFromEpoch(draft.startAt)} onChange={(value) => setDraft({ ...draft, startAt: epochFromTime(draft.date, value) })} /></div>
@@ -366,18 +391,21 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
           <div className="mt-2"><Label>Break minutes</Label><Input type="number" min={0} value={draft.breakMinutes} onChange={(event) => setDraft({ ...draft, breakMinutes: Math.max(0, parseInt(event.target.value || "0", 10)) })} /></div>
         </>
       )}
-      {!zeroDay && (
+      {(
         <div className="mt-2">
           <Label>Additional work not captured by clock times (minutes)</Label>
           <Input type="number" min={0} max={480} step={5} value={draft.extraMinutes || 0} onChange={(event) => setDraft({ ...draft, extraMinutes: Math.min(480, Math.max(0, parseInt(event.target.value || "0", 10))) })} />
         </div>
       )}
+      <div className="mt-2"><Label>Hours used to repay employer</Label><Input type="number" min={0} step={0.25} value={(draft.offsetMinutes || 0) / 60} onChange={(event) => setDraft({ ...draft, offsetMinutes: Math.max(0, Math.round((Number(event.target.value) || 0) * 60)) })} /></div>
+      <div className="mt-2"><Label>Hours already paid</Label><Input type="number" min={0} step={0.25} value={(draft.paidMinutes || 0) / 60} onChange={(event) => setDraft({ ...draft, paidMinutes: Math.max(0, Math.round((Number(event.target.value) || 0) * 60)) })} /></div>
+      <p className="mt-1 text-xs text-muted-foreground">To correct a zero-hour day, change the actual start and end times. Work stays separate from credits and payments.</p>
       <div className="mt-2"><Label>Job / property</Label><Input value={draft.workSite || ""} onChange={(event) => setDraft({ ...draft, workSite: event.target.value })} /></div>
       <div className="mt-2"><Label>What did you do?</Label><Textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></div>
       {validation && <p className="mt-2 text-xs text-red-400">{validation}</p>}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Button onClick={() => {
-          if (!zeroDay && (draft.stopAt <= draft.startAt || draft.breakMinutes * 60_000 >= draft.stopAt - draft.startAt)) {
+          if (draft.stopAt <= draft.startAt || draft.breakMinutes * 60_000 >= draft.stopAt - draft.startAt) {
             setValidation("End must be after start and the break must be shorter than the shift.");
             return;
           }
@@ -385,7 +413,12 @@ function EntryCard({ entry, onUpdate, onDelete }: { entry: WorkEntry; onUpdate: 
             setValidation("Explain the additional work in the note before saving.");
             return;
           }
-          onUpdate(entry.id, { date: draft.date, startAt: draft.startAt, stopAt: draft.stopAt, breakMinutes: draft.breakMinutes, extraMinutes: draft.extraMinutes || 0, note: draft.note, workSite: draft.workSite });
+          const revisedWorkedMinutes = Math.max(0, Math.round(((draft.stopAt - draft.startAt - draft.breakMinutes * 60000) / 3600000 + (draft.extraMinutes || 0) / 60) * 60));
+          if ((draft.offsetMinutes || 0) + (draft.paidMinutes || 0) > revisedWorkedMinutes) {
+            setValidation("Credit plus paid hours cannot exceed actual hours worked.");
+            return;
+          }
+          onUpdate(entry.id, { offsetMinutes: draft.offsetMinutes || 0, paidMinutes: draft.paidMinutes || 0, date: draft.date, startAt: draft.startAt, stopAt: draft.stopAt, breakMinutes: draft.breakMinutes, extraMinutes: draft.extraMinutes || 0, note: draft.note, workSite: draft.workSite });
           setEditing(false);
         }}>Save correction</Button>
         <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>

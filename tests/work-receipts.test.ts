@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { reviseWorkEntry, workDayEntries, workDayTotal, workDayPhotos, recalculateEditedWorkHours } from "../src/lib/work-hours";
+import { reviseWorkEntry, workDayEntries, workDayTotal, workDayPhotos, recalculateEditedWorkHours, workPaymentBreakdown, summarizeWorkPayments } from "../src/lib/work-hours";
 import type { EquipmentPhoto, WorkEntry } from "../src/lib/types";
 
 const morning: WorkEntry = {
@@ -46,6 +46,49 @@ describe("COILSIDE daily work receipts", () => {
     expect(corrected.revisions?.[0].before.extraMinutes).toBeUndefined();
     expect(recalculateEditedWorkHours(corrected, { extraMinutes: 0 })).toBe(2.75);
   });
+  test("2.5 hours worked minus 2 owed leaves 0.5 unpaid, without erasing work", () => {
+    const shift: WorkEntry = { ...morning, stopAt: morning.startAt + 150 * 60000, totalHours: 2.5, offsetMinutes: 120 };
+    expect(workPaymentBreakdown(shift)).toEqual({
+      workedMinutes: 150, offsetMinutes: 120, payableMinutes: 30, paidMinutes: 0, unpaidMinutes: 30,
+    });
+    expect(summarizeWorkPayments([shift]).unpaidMinutes).toBe(30);
+    expect(shift.totalHours).toBe(2.5);
+  });
+
+  test("paid hours and owed-hour credit are audited separately", () => {
+    const shift: WorkEntry = { ...morning, stopAt: morning.startAt + 150 * 60000, totalHours: 2.5, offsetMinutes: 120 };
+    const paid = reviseWorkEntry(shift, { paidMinutes: 30 }, 200);
+    expect(workPaymentBreakdown(paid).unpaidMinutes).toBe(0);
+    expect(paid.totalHours).toBe(2.5);
+    expect(paid.revisions?.[0].before.offsetMinutes).toBe(120);
+    expect(paid.revisions?.[0].before.paidMinutes).toBeUndefined();
+  });
+
+  test("legacy time entries stay fully unpaid by default and voided time stays out of receipts", () => {
+    expect(workPaymentBreakdown(morning).unpaidMinutes).toBe(105);
+    const voided = reviseWorkEntry(morning, { voidedAt: 123 }, 123);
+    expect(summarizeWorkPayments([morning, voided]).workedMinutes).toBe(105);
+  });
+
+  test("credit and payment values cannot create a negative unpaid balance", () => {
+    const entry = { ...morning, totalHours: 2.5, offsetMinutes: 500, paidMinutes: 999 };
+    expect(workPaymentBreakdown(entry).unpaidMinutes).toBe(0);
+    expect(workPaymentBreakdown(entry).offsetMinutes).toBe(150);
+  });
+
+  test("a mistaken zero-hour day can be corrected into real labor with an audit trail", () => {
+    const zeroDay = { ...morning, startAt: 0, stopAt: 0, totalHours: 0 };
+    const fixed = reviseWorkEntry(zeroDay, {
+      startAt: morning.startAt,
+      stopAt: morning.startAt + 150 * 60000,
+      offsetMinutes: 120,
+      note: "Farmhouse; 2 hours offset against debt",
+    }, 456);
+    expect(fixed.totalHours).toBe(2.5);
+    expect(workPaymentBreakdown(fixed).unpaidMinutes).toBe(30);
+    expect(fixed.revisions?.[0].before.totalHours).toBe(0);
+  });
+
   test("no-op edits do not generate fake changes", () => {
     expect(reviseWorkEntry(morning, { note: morning.note })).toBe(morning);
   });
