@@ -47,7 +47,7 @@ describe("COILSIDE daily work receipts", () => {
     expect(recalculateEditedWorkHours(corrected, { extraMinutes: 0 })).toBe(2.75);
   });
   test("2.5 hours worked minus 2 owed leaves 0.5 unpaid, without erasing work", () => {
-    const shift: WorkEntry = { ...morning, totalHours: 2.5, offsetMinutes: 120 };
+    const shift: WorkEntry = { ...morning, stopAt: morning.startAt + 150 * 60000, totalHours: 2.5, offsetMinutes: 120 };
     expect(workPaymentBreakdown(shift)).toEqual({
       workedMinutes: 150, offsetMinutes: 120, payableMinutes: 30, paidMinutes: 0, unpaidMinutes: 30,
     });
@@ -56,7 +56,7 @@ describe("COILSIDE daily work receipts", () => {
   });
 
   test("paid hours and owed-hour credit are audited separately", () => {
-    const shift: WorkEntry = { ...morning, totalHours: 2.5, offsetMinutes: 120 };
+    const shift: WorkEntry = { ...morning, stopAt: morning.startAt + 150 * 60000, totalHours: 2.5, offsetMinutes: 120 };
     const paid = reviseWorkEntry(shift, { paidMinutes: 30 }, 200);
     expect(workPaymentBreakdown(paid).unpaidMinutes).toBe(0);
     expect(paid.totalHours).toBe(2.5);
