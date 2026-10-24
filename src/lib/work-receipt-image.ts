@@ -79,7 +79,7 @@ export async function buildDailyWorkReceiptPng({ employerName, date, entries, ph
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = "#31bdef";
   ctx.font = "bold 45px Arial, sans-serif";
-  ctx.fillText("COILSIDE · WORK RECEIPT", margin, 82);
+  ctx.fillText("WTF STUPID SIMPLE · WORK RECEIPT", margin, 82);
   ctx.fillStyle = "#f8fafc";
   ctx.font = "bold 43px Arial, sans-serif";
   ctx.fillText(employerName, margin, 142);

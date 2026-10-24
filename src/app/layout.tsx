@@ -11,12 +11,12 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "WTF STUPID SIMPLE",
+  title: "WTF Stupid Simple",
   description: "Complicated is the enemy. Simple is the solution. HVAC — Learn It. Note It. Fix It.",
-  applicationName: "WTF STUPID SIMPLE",
+  applicationName: "WTF Stupid Simple",
   manifest: "/manifest.json",
-  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }] },
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "WTF STUPID SIMPLE" },
+  icons: { icon: [{ url: "/icon.svg?v=2", type: "image/svg+xml" }], shortcut: "/icon.svg?v=2" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "WTF" },
 };
 
 export const viewport: Viewport = {

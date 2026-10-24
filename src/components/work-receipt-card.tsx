@@ -69,7 +69,7 @@ export function WorkReceiptCard({ employer, date, entries }: { employer: Employe
         entries,
         photos,
       });
-      const delivery = await shareWorkReceipt(blob, `coilside-${employer}-${date}-work-receipt.png`, `${EMPLOYER_NAME[employer]} work receipt ${date}`);
+      const delivery = await shareWorkReceipt(blob, `wtf-${employer}-${date}-work-receipt.png`, `${EMPLOYER_NAME[employer]} work receipt ${date}`);
       setMessage(delivery === "shared" ? "Receipt shared." : "Receipt downloaded. Send it to your employer.");
     } catch (error) {
       // Cancelling an Android share sheet is not a failed receipt.

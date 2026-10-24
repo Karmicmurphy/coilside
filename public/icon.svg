@@ -1,9 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="104" fill="#0a0a0a"/>
-  <rect x="30" y="30" width="452" height="452" rx="78" fill="none" stroke="#e8e8e8" stroke-width="8"/>
-  <path d="M72 92h368" stroke="#e8e8e8" stroke-width="8" stroke-linecap="round"/>
-  <text x="256" y="288" font-family="Impact, Arial Black, sans-serif" font-size="190" font-weight="900" fill="#f5f5f5" text-anchor="middle" letter-spacing="-12">WTF</text>
-  <text x="256" y="362" font-family="Arial, sans-serif" font-size="34" font-weight="900" fill="#f5f5f5" text-anchor="middle" letter-spacing="6">STUPID SIMPLE</text>
-  <path d="M116 398h280" stroke="#e8e8e8" stroke-width="5" stroke-linecap="round"/>
-  <text x="256" y="438" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#b8b8b8" text-anchor="middle" letter-spacing="2">SIMPLE IS THE SOLUTION</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="wtf-title wtf-desc">
+  <title id="wtf-title">WTF Stupid Simple</title>
+  <desc id="wtf-desc">Black circular badge with bold white WTF, Stupid Simple, and Simple Is The Solution.</desc>
+  <circle cx="256" cy="256" r="247" fill="#090909"/>
+  <circle cx="256" cy="256" r="244" fill="none" stroke="#454545" stroke-width="3"/>
+  <path d="M104 80H408" stroke="#f4f4f4" stroke-width="9" stroke-linecap="round"/>
+  <text x="256" y="283" fill="#fafafa" font-family="Arial Black,Impact,Arial,sans-serif" font-weight="900" font-size="169" text-anchor="middle" textLength="364" lengthAdjust="spacingAndGlyphs">WTF</text>
+  <text x="256" y="347" fill="#f9f9f9" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" text-anchor="middle" textLength="313" lengthAdjust="spacingAndGlyphs">STUPID SIMPLE</text>
+  <path d="M112 380H400" stroke="#ededed" stroke-width="6" stroke-linecap="round"/>
+  <text x="256" y="424" fill="#dfdfdf" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="16" text-anchor="middle" textLength="276" lengthAdjust="spacingAndGlyphs">SIMPLE IS THE SOLUTION</text>
 </svg>

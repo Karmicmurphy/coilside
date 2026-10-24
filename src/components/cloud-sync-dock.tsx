@@ -41,7 +41,7 @@ export function CloudSyncDock() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">COILSIDE Cloud</h2>
+              <h2 className="text-lg font-bold">WTF Cloud Sync</h2>
               <button className="p-2" aria-label="Close" onClick={() => setOpen(false)}><X size={20} /></button>
             </div>
             <p className="mt-2 text-sm">{status.message}</p>

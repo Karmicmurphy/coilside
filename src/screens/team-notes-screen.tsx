@@ -88,7 +88,7 @@ export function TeamNotesScreen() {
     const url = linkFor(role);
     if (!url) { setError("This phone does not have the original invite code."); return; }
     try {
-      if (role === "sean" && navigator.share) await navigator.share({ title: "COILSIDE — Sean invite", url });
+      if (role === "sean" && navigator.share) await navigator.share({ title: "WTF Stupid Simple — Sean invite", url });
       else { await navigator.clipboard.writeText(url); setNotice(role === "sean" ? "Sean's invitation link copied." : "Owner recovery link copied. Keep it private."); }
     } catch(e) {
       if (e instanceof Error && e.name === "AbortError") return;

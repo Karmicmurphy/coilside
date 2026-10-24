@@ -1,19 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-labelledby="title desc">
-  <title id="title">WTF STUPID SIMPLE</title>
-  <desc id="desc">HVAC — Learn It. Note It. Fix It.</desc>
-  <defs>
-    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#38bdf8"/>
-      <stop offset="0.52" stop-color="#64748b"/>
-      <stop offset="1" stop-color="#fb923c"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="280" rx="28" fill="#111820"/>
-  <rect x="28" y="28" width="250" height="224" rx="26" fill="#0b1118" stroke="url(#line)" stroke-width="8"/>
-  <text x="153" y="165" font-family="Arial Narrow, Impact, sans-serif" font-size="112" font-weight="900" fill="#f8fafc" text-anchor="middle" letter-spacing="-7">WTF</text>
-  <text x="153" y="211" font-family="Arial, sans-serif" font-size="20" font-weight="800" fill="#cbd5e1" text-anchor="middle" letter-spacing="4">STUPID SIMPLE</text>
-  <text x="322" y="122" font-family="Arial Narrow, Impact, sans-serif" font-size="68" font-weight="900" fill="#f8fafc" letter-spacing="1">WTF STUPID SIMPLE</text>
-  <rect x="322" y="145" width="815" height="5" rx="2.5" fill="url(#line)"/>
-  <text x="322" y="205" font-family="Arial, sans-serif" font-size="31" font-weight="800" fill="#38bdf8">HVAC</text>
-  <text x="430" y="205" font-family="Arial, sans-serif" font-size="31" font-weight="700" fill="#cbd5e1">• LEARN IT. NOTE IT. FIX IT.</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" width="1200" height="280" role="img" aria-labelledby="brand-title brand-desc">
+  <title id="brand-title">WTF Stupid Simple</title>
+  <desc id="brand-desc">Matching black-and-white WTF Stupid Simple badge and wordmark.</desc>
+  <rect width="1200" height="280" rx="28" fill="#090909"/>
+  <circle cx="142" cy="140" r="120" fill="#090909" stroke="#454545" stroke-width="3"/>
+  <path d="M72 56H212" stroke="#f4f4f4" stroke-width="5" stroke-linecap="round"/>
+  <text x="142" y="151" font-family="Arial Black,Impact,Arial,sans-serif" font-size="78" font-weight="900" text-anchor="middle" textLength="168" lengthAdjust="spacingAndGlyphs" fill="#fafafa">WTF</text>
+  <text x="142" y="179" font-family="Arial,Helvetica,sans-serif" font-size="14" font-weight="900" text-anchor="middle" textLength="151" lengthAdjust="spacingAndGlyphs" fill="#fafafa">STUPID SIMPLE</text>
+  <path d="M69 194H215" stroke="#ededed" stroke-width="3" stroke-linecap="round"/>
+  <text x="142" y="214" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="800" text-anchor="middle" textLength="136" lengthAdjust="spacingAndGlyphs" fill="#dfdfdf">SIMPLE IS THE SOLUTION</text>
+  <text x="298" y="134" fill="#fafafa" font-family="Arial Black,Impact,Arial,sans-serif" font-size="72" font-weight="900">WTF</text>
+  <text x="300" y="185" fill="#fafafa" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="900" letter-spacing="4">STUPID SIMPLE</text>
+  <path d="M298 212H1110" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round"/>
+  <text x="298" y="247" fill="#c4c4c4" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" letter-spacing="1">SIMPLE IS THE SOLUTION</text>
 </svg>

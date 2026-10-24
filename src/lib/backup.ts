@@ -2,7 +2,7 @@
 
 import type { CoilsideState } from "./types";
 
-const FILE_PREFIX = "coilside-backup";
+const FILE_PREFIX = "wtf-stupid-simple-backup";
 const VERSION = 1;
 
 export interface BackupFile {
@@ -45,7 +45,7 @@ export function downloadBackup(state: CoilsideState) {
 export function parseBackup(json: string): BackupFile {
   const obj = JSON.parse(json);
   if (!obj || obj.app !== "coilside" || !obj.state) {
-    throw new Error("Not a valid COILSIDE backup file.");
+    throw new Error("Not a valid WTF Stupid Simple backup file.");
   }
   return obj as BackupFile;
 }

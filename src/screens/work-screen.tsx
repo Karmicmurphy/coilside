@@ -105,6 +105,9 @@ async function buildTimesheetPng(employer: Employer, entries: WorkEntry[], selec
   ctx.strokeStyle = "#07516c";
   ctx.lineWidth = 6;
   ctx.strokeRect(18, 18, width - 36, height - 36);
+  ctx.fillStyle = "#fafafa";
+  ctx.font = "900 20px Arial, sans-serif";
+  ctx.fillText("WTF STUPID SIMPLE", padding, 49);
   ctx.fillStyle = "#20bdf3";
   ctx.font = "700 38px Arial, sans-serif";
   ctx.fillText("WEEKLY WORK & PAYMENT RECEIPT", padding, 92);
@@ -279,7 +282,7 @@ export function WorkHistoryScreen() {
     setShareStatus("working");
     try {
       const blob = await buildTimesheetPng(employerFilter, weekEntries, selectedWeekKey);
-      const file = new File([blob], `${employerFilter}-${selectedWeekKey}-timesheet.png`, { type: "image/png" });
+      const file = new File([blob], `wtf-${employerFilter}-${selectedWeekKey}-timesheet.png`, { type: "image/png" });
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) await navigator.share({ files: [file], title: `${EMPLOYER_LABEL[employerFilter]} Timesheet` });
       else {
         const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
