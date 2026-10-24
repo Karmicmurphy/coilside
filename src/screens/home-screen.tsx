@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Radio,
 } from "lucide-react";
+import Image from "next/image";
 import { BigButton } from "@/components/big-button";
 import { useRouter } from "@/components/screen-router";
 import { useCoilsideStore } from "@/lib/store";
@@ -24,15 +25,16 @@ export function HomeScreen() {
     <div className="flex min-h-dvh flex-col px-4 pb-28 [padding-top:max(1rem,env(safe-area-inset-top))]">
       {/* WTF STUPID SIMPLE global brand + this app's purpose */}
       <div className="mb-4 pt-2 pr-32">
-        <div className="leading-none">
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-black tracking-[-0.06em] text-foreground">WTF</span>
-            <span className="text-sm font-black uppercase tracking-[0.14em] text-foreground/80">Stupid Simple</span>
+        <div className="flex items-center gap-2.5">
+          <Image src="/icon.svg" alt="WTF Stupid Simple" width={64} height={64} className="h-14 w-14 shrink-0" priority />
+          <div className="min-w-0 leading-none">
+            <p className="text-3xl font-black tracking-[-0.06em] text-foreground">WTF</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.08em] text-foreground/80">Stupid Simple</p>
           </div>
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
-            Complicated is the enemy. Simple is the solution.
-          </p>
         </div>
+        <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          Simple is the solution.
+        </p>
         <div className="mt-2 h-px w-full bg-border" />
         <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           HVAC · Learn It. Note It. Fix It.

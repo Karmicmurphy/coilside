@@ -1,6 +1,6 @@
 // WTF STUPID SIMPLE service worker — offline shell without trapping users on stale deploys.
-const CACHE = "wtf-stupid-simple-v3";
-const PRECACHE = ["/", "/manifest.json", "/icon.svg"];
+const CACHE = "wtf-stupid-simple-v4";
+const PRECACHE = ["/", "/manifest.json", "/icon.svg", "/logo.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -46,7 +46,8 @@ self.addEventListener("fetch", (event) => {
   if (
     request.mode === "navigate" ||
     url.pathname === "/manifest.json" ||
-    url.pathname === "/icon.svg"
+    url.pathname === "/icon.svg" ||
+    url.pathname === "/logo.svg"
   ) {
     event.respondWith(networkFirst(request));
     return;

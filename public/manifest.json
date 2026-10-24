@@ -1,8 +1,10 @@
 {
-  "name": "WTF STUPID SIMPLE",
+  "id": "/",
+  "name": "WTF Stupid Simple",
   "short_name": "WTF",
-  "description": "Complicated is the enemy. Simple is the solution. HVAC — Learn It. Note It. Fix It.",
+  "description": "Simple is the solution. Work hours, receipts, notes, and HVAC field tools.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0a0a",
@@ -12,7 +14,13 @@
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }
