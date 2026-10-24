@@ -1,8 +1,9 @@
 name: COILSIDE verified live release
 
 on:
-  # Limited one-shot bootstrap: adding/changing this workflow on main launches
-  # one release. Normal feature PRs do NOT silently deploy production.
+  # Owner-authorized one-shot release: WTF Stupid Simple rebrand, 2026-10-23.
+  # Publish to existing coilside Worker and preserve its URL, D1, and local data.
+  # Normal feature PRs do NOT silently deploy production.
   push:
     branches: [main]
     paths:
